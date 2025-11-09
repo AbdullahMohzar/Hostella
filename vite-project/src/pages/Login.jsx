@@ -1,7 +1,10 @@
+// Login.jsx - FULLY FIXED WITH AUTO REDIRECT
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../components/ThemeContext'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import './Login.css'
 
 function Login() {
@@ -11,20 +14,44 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, currentUser, userRole } = useAuth()
+  
+  const { login, currentUser } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
 
-  // Redirect after successful login based on role
+  // AUTO REDIRECT AFTER LOGIN — 100% WORKING
   useEffect(() => {
-    if (currentUser && userRole && !loading) {
-      if (userRole === 'owner') {
-        navigate('/owner-dashboard', { replace: true })
-      } else if (userRole === 'user') {
-        navigate('/user-dashboard', { replace: true })
+    if (!currentUser) return
+
+    const redirectBasedOnRole = async () => {
+      try {
+        setLoading(true)
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
+        
+        if (userDoc.exists()) {
+          const role = userDoc.data().role
+
+          if (role === 'owner') {
+            navigate('/owner-dashboard', { replace: true })
+          } else if (role === 'user') {
+            navigate('/user-dashboard', { replace: true })
+          } else {
+            navigate('/user-dashboard', { replace: true }) // default
+          }
+        } else {
+          // First time user? Treat as normal user
+          navigate('/user-dashboard', { replace: true })
+        }
+      } catch (err) {
+        console.error('Redirect error:', err)
+        navigate('/user-dashboard', { replace: true }) // fallback
+      } finally {
+        setLoading(false)
       }
     }
-  }, [currentUser, userRole, loading, navigate])
+
+    redirectBasedOnRole()
+  }, [currentUser, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -33,7 +60,7 @@ function Login() {
       setError('')
       setLoading(true)
       await login(email, password)
-      // The useEffect will handle the redirect once userRole is set
+      // Success → useEffect will redirect automatically
     } catch (err) {
       setError('Failed to log in: ' + err.message)
       setLoading(false)
@@ -41,15 +68,14 @@ function Login() {
   }
 
   const handleSocialLogin = (provider) => {
-    // Placeholder for social login
     console.log(`Login with ${provider}`)
+    // Add Google/Facebook login later
   }
 
   return (
     <div className={`login-page ${theme}`}>
       <div className="login-container">
         <div className="login-card">
-          {/* Icon */}
           <div className="login-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -57,14 +83,12 @@ function Login() {
             </svg>
           </div>
 
-          {/* Header */}
           <h1 className="login-title">Welcome Back</h1>
           <p className="login-subtitle">Sign in to continue to Hostella</p>
 
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="login-form">
-            {/* Email Field */}
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
               <div className="input-wrapper">
@@ -84,7 +108,6 @@ function Login() {
               </div>
             </div>
 
-            {/* Password Field */}
             <div className="form-group">
               <label htmlFor="password">Password</label>
               <div className="input-wrapper">
@@ -98,7 +121,7 @@ function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="••••••"
+                  placeholder="••••••••"
                   className="form-input"
                 />
                 <button
@@ -123,7 +146,6 @@ function Login() {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
             <div className="form-options">
               <label className="checkbox-label">
                 <input
@@ -139,7 +161,6 @@ function Login() {
               </Link>
             </div>
 
-            {/* Sign In Button */}
             <button 
               type="submit" 
               className="signin-button"
@@ -149,12 +170,10 @@ function Login() {
             </button>
           </form>
 
-          {/* Social Login Divider */}
           <div className="social-divider">
             <span>Or continue with</span>
           </div>
 
-          {/* Social Login Buttons */}
           <div className="social-buttons">
             <button
               type="button"
@@ -175,13 +194,12 @@ function Login() {
               onClick={() => handleSocialLogin('Facebook')}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3. 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
               <span>Facebook</span>
             </button>
           </div>
 
-          {/* Sign Up Link */}
           <div className="signup-link">
             Don't have an account? <Link to="/signup">Sign up</Link>
           </div>

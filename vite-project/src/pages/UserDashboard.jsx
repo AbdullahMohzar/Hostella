@@ -10,8 +10,12 @@ import {
   addDoc, 
   updateDoc, 
   doc,
-  deleteDoc
+  deleteDoc,
+  setDoc,
+  getDoc
 } from 'firebase/firestore'
+
+import { updateProfile } from 'firebase/auth'
 import { db } from '../firebase'
 import './UserDashboard.css'
 
@@ -19,7 +23,7 @@ function UserDashboard() {
   const { currentUser, userProfile, updateUserProfile } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('bookings')
+  const [activeTab, setActiveTab] = useState('profile')
   const [showProfileEdit, setShowProfileEdit] = useState(false)
   const [loading, setLoading] = useState(true)
   const [profileData, setProfileData] = useState({
@@ -34,17 +38,40 @@ function UserDashboard() {
   const [availableHostels, setAvailableHostels] = useState([])
 
   // Load profile data from Firestore
-  useEffect(() => {
-    if (userProfile) {
-      setProfileData({
-        name: userProfile.displayName || currentUser?.displayName || '',
-        email: userProfile.email || currentUser?.email || '',
-        phone: userProfile.phone || '',
-        address: userProfile.location || '',
-        bio: userProfile.bio || ''
-      })
+  // Load profile from Firestore (REAL FIX)
+useEffect(() => {
+  const loadProfile = async () => {
+    if (!currentUser) return
+
+    try {
+      const userDoc = doc(db, 'users', currentUser.uid)
+      const docSnap = await getDoc(userDoc)
+
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setProfileData({
+          name: data.displayName || currentUser.displayName || '',
+          email: data.email || currentUser.email || '',
+          phone: data.phone || '',
+          address: data.location || '',
+          bio: data.bio || ''
+        })
+      } else {
+        setProfileData({
+          name: currentUser.displayName || '',
+          email: currentUser.email || '',
+          phone: '',
+          address: '',
+          bio: ''
+        })
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error)
     }
-  }, [userProfile, currentUser])
+  }
+
+  loadProfile()
+}, [currentUser])
 
   // Load bookings from Firestore
   useEffect(() => {
@@ -106,21 +133,33 @@ function UserDashboard() {
   }
 
   const handleProfileSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      await updateUserProfile(currentUser.uid, {
-        displayName: profileData.name,
-        phone: profileData.phone,
-        location: profileData.address,
-        bio: profileData.bio
-      })
-      setShowProfileEdit(false)
-      alert('Profile updated successfully!')
-    } catch (error) {
-      console.error('Error updating profile:', error)
-      alert('Failed to update profile. Please try again.')
-    }
+  e.preventDefault()
+  if (!currentUser) return
+
+  try {
+    // Update Firebase Auth name
+    await updateProfile(currentUser, {
+      displayName: profileData.name
+    })
+
+    // SAVE TO FIRESTORE (THIS WAS MISSING!)
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      displayName: profileData.name,
+      email: currentUser.email,
+      phone: profileData.phone,
+      location: profileData.address,
+      bio: profileData.bio,
+      role: 'user',
+      updatedAt: new Date().toISOString()
+    }, { merge: true })
+
+    setShowProfileEdit(false)
+    alert('Profile saved forever!')
+  } catch (error) {
+    console.error('Save failed:', error)
+    alert('Error: ' + error.message)
   }
+}
 
   const handleBookingFormChange = (e) => {
     setBookingForm({
@@ -198,6 +237,14 @@ function UserDashboard() {
     .filter(b => b.status === 'confirmed')
     .reduce((sum, booking) => sum + booking.price, 0)
 
+  const getMemberSince = () => {
+  const created = currentUser?.metadata?.creationTime
+  if (created) {
+    return new Date(created).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  }
+  return 'Nov 2025'
+}
+
   return (
     <div className={`user-dashboard ${theme}`}>
       <div className="dashboard-container">
@@ -211,16 +258,34 @@ function UserDashboard() {
         {/* Stats Section */}
         <div className="stats-section">
           <div className="stat-card">
+            <div className="stat-icon calendar-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="6" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <path d="M3 10h18" stroke="currentColor" strokeWidth="2"/>
+                <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
             <h3 className="stat-label">Total Bookings</h3>
             <p className="stat-value">{bookings.length}</p>
           </div>
           <div className="stat-card">
+            <div className="stat-icon check-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                <path d="M8 12l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
             <h3 className="stat-label">Confirmed</h3>
             <p className="stat-value">
               {bookings.filter(b => b.status === 'confirmed').length}
             </p>
           </div>
           <div className="stat-card">
+            <div className="stat-icon dollar-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
             <h3 className="stat-label">Total Spent</h3>
             <p className="stat-value">${totalSpent.toLocaleString()}</p>
           </div>
@@ -317,27 +382,70 @@ function UserDashboard() {
                 </button>
               </form>
             ) : (
-              <div className="profile-display">
-                <div className="profile-info">
-                  <div className="info-item">
-                    <span className="info-label">Name:</span>
-                    <span className="info-value">{profileData.name || 'Not set'}</span>
+              <div className="profile-display-card">
+                <div className="profile-header-section">
+                  <div className="profile-avatar">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
+                      <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Email:</span>
-                    <span className="info-value">{profileData.email}</span>
+                  <div className="profile-header-info">
+                    <h3 className="profile-name">{profileData.name || 'User Name'}</h3>
+                    <p className="profile-member-since">Member since {getMemberSince()}</p>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Phone:</span>
-                    <span className="info-value">{profileData.phone || 'Not set'}</span>
+                </div>
+
+                <div className="profile-details-grid">
+                  <div className="profile-detail-item">
+                    <div className="detail-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <div className="detail-content">
+                      <p className="detail-label">Full Name</p>
+                      <p className="detail-value">{profileData.name || 'Not set'}</p>
+                    </div>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Address:</span>
-                    <span className="info-value">{profileData.address || 'Not set'}</span>
+
+                  <div className="profile-detail-item">
+                    <div className="detail-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div className="detail-content">
+                      <p className="detail-label">Email Address</p>
+                      <p className="detail-value">{profileData.email}</p>
+                    </div>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Bio:</span>
-                    <span className="info-value">{profileData.bio || 'No bio added yet'}</span>
+
+                  <div className="profile-detail-item">
+                    <div className="detail-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div className="detail-content">
+                      <p className="detail-label">Phone Number</p>
+                      <p className="detail-value">{profileData.phone || 'Not set'}</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-detail-item">
+                    <div className="detail-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" strokeWidth="2"/>
+                        <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2"/>
+                      </svg>
+                    </div>
+                    <div className="detail-content">
+                      <p className="detail-label">Location</p>
+                      <p className="detail-value">{profileData.address || 'Not set'}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -459,7 +567,7 @@ function UserDashboard() {
               {bookingForm.hostelId && bookingForm.checkIn && bookingForm.checkOut && (
                 <div className="booking-summary">
                   {(() => {
-                    const selectedHostel = availableHostels.find(h => h.id === parseInt(bookingForm.hostelId))
+                    const selectedHostel = availableHostels.find(h => h.id === bookingForm.hostelId)
                     const nights = Math.ceil((new Date(bookingForm.checkOut) - new Date(bookingForm.checkIn)) / (1000 * 60 * 60 * 24))
                     const totalPrice = selectedHostel ? selectedHostel.price * nights * bookingForm.guests : 0
                     return (

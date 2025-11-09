@@ -117,7 +117,7 @@ function Signup() {
                     value={formData.firstName}
                     onChange={handleChange}
                     required
-                    placeholder="John"
+                    placeholder=""
                     className="form-input"
                   />
                 </div>
@@ -136,7 +136,7 @@ function Signup() {
                     value={formData.lastName}
                     onChange={handleChange}
                     required
-                    placeholder="Doe"
+                    placeholder=""
                     className="form-input"
                   />
                 </div>
@@ -158,7 +158,7 @@ function Signup() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  placeholder="you@example.com"
+                  placeholder=""
                   className="form-input"
                 />
               </div>
@@ -178,7 +178,7 @@ function Signup() {
                     type="tel"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="+1 (234) 567-8900"
+                    placeholder=""
                     className="form-input"
                   />
                 </div>
@@ -196,7 +196,7 @@ function Signup() {
                     type="text"
                     value={formData.location}
                     onChange={handleChange}
-                    placeholder="San Francisco, CA"
+                    placeholder=""
                     className="form-input"
                   />
                 </div>

@@ -52,7 +52,7 @@ function Navbar() {
                     Dashboard
                   </Link>
                   <Link to="/hostels/manage" className="navbar-link">
-                    Manage Hostels
+                    
                   </Link>
                 </>
               ) : (
@@ -61,7 +61,7 @@ function Navbar() {
                     Dashboard
                   </Link>
                   <Link to="/hostels/book" className="navbar-link">
-                    Book Hostel
+                    
                   </Link>
                 </>
               )}
