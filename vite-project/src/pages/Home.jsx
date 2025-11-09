@@ -1,16 +1,83 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../components/ThemeContext'
 import HostelCard from '../components/HostelCard'
 import RoommateCard from '../components/RoommateCard'
 import SearchBar from '../components/SearchBar'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '../firebase'
 import heroImage from '../assets/2280feee79ed9810e3a864e738a4ea7ee9086c87.png'
 import './Home.css'
 
 function Home() {
   const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState('hostels')
+  const [hostels, setHostels] = useState([])
+  const [filteredHostels, setFilteredHostels] = useState([])
+  const [filters, setFilters] = useState({
+    location: '',
+    checkIn: '',
+    checkOut: '',
+    minPrice: '',
+    maxPrice: '',
+    rating: ''
+  })
+  const [loading, setLoading] = useState(true)
 
-  const hostels = [
+  // Load hostels from Firestore
+  useEffect(() => {
+    const loadHostels = async () => {
+      try {
+        const hostelsQuery = query(collection(db, 'hostels'))
+        const querySnapshot = await getDocs(hostelsQuery)
+        const hostelsData = []
+        querySnapshot.forEach((doc) => {
+          hostelsData.push({ id: doc.id, ...doc.data() })
+        })
+        setHostels(hostelsData)
+        setFilteredHostels(hostelsData)
+        setLoading(false)
+      } catch (error) {
+        console.error('Error loading hostels:', error)
+        setLoading(false)
+      }
+    }
+
+    loadHostels()
+  }, [])
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...hostels]
+
+    if (filters.location) {
+      filtered = filtered.filter(h => 
+        h.location?.toLowerCase().includes(filters.location.toLowerCase())
+      )
+    }
+
+    if (filters.minPrice) {
+      filtered = filtered.filter(h => h.price >= parseFloat(filters.minPrice))
+    }
+
+    if (filters.maxPrice) {
+      filtered = filtered.filter(h => h.price <= parseFloat(filters.maxPrice))
+    }
+
+    if (filters.rating) {
+      filtered = filtered.filter(h => h.rating >= parseFloat(filters.rating))
+    }
+
+    setFilteredHostels(filtered)
+  }, [filters, hostels])
+
+  const handleSearch = (searchFilters) => {
+    setFilters(prev => ({
+      ...prev,
+      ...searchFilters
+    }))
+  }
+
+  const defaultHostels = [
     {
       id: '1',
       name: 'Urban Nest Hostel',
@@ -135,7 +202,7 @@ function Home() {
             Discover amazing hostels and connect with compatible roommates around the world. 
             Your next adventure starts here.
           </p>
-          <SearchBar />
+          <SearchBar onSearch={handleSearch} />
           
           {/* Stats Section */}
           <div className="hero-stats">
@@ -208,9 +275,15 @@ function Home() {
 
           {activeTab === 'hostels' && (
             <div className="hostels-grid">
-              {hostels.map((hostel) => (
-                <HostelCard key={hostel.id} {...hostel} />
-              ))}
+              {loading ? (
+                <div className="loading-message">Loading hostels...</div>
+              ) : filteredHostels.length === 0 ? (
+                <div className="no-results">No hostels found matching your criteria.</div>
+              ) : (
+                filteredHostels.map((hostel) => (
+                  <HostelCard key={hostel.id} {...hostel} />
+                ))
+              )}
             </div>
           )}
 

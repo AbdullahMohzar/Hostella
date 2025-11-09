@@ -267,6 +267,165 @@
   font-size: 1.1rem;
 }
 
+/* Dashboard Tabs */
+.dashboard-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 30px;
+  background: #f0f0f0;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.owner-dashboard.dark .dashboard-tabs {
+  background: #3d3d3d;
+}
+
+.tab-button {
+  padding: 10px 24px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #666;
+}
+
+.owner-dashboard.dark .tab-button {
+  color: #ccc;
+}
+
+.tab-button:hover {
+  color: #007bff;
+}
+
+.owner-dashboard.dark .tab-button:hover {
+  color: #4da3ff;
+}
+
+.tab-button.active {
+  background: white;
+  color: #007bff;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.owner-dashboard.dark .tab-button.active {
+  background: #2d2d2d;
+  color: #4da3ff;
+}
+
+/* Tables */
+.bookings-table-container,
+.users-table-container {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.bookings-table,
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.owner-dashboard.dark .bookings-table,
+.owner-dashboard.dark .users-table {
+  background: #2d2d2d;
+}
+
+.bookings-table thead,
+.users-table thead {
+  background: #f8f9fa;
+}
+
+.owner-dashboard.dark .bookings-table thead,
+.owner-dashboard.dark .users-table thead {
+  background: #3d3d3d;
+}
+
+.bookings-table th,
+.users-table th {
+  padding: 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.owner-dashboard.dark .bookings-table th,
+.owner-dashboard.dark .users-table th {
+  color: #ccc;
+}
+
+.bookings-table td,
+.users-table td {
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.owner-dashboard.dark .bookings-table td,
+.owner-dashboard.dark .users-table td {
+  border-top-color: #3d3d3d;
+}
+
+.status-select {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.owner-dashboard.dark .status-select {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #555;
+}
+
+.status-select.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-select.confirmed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-select.cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-select.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-select.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.hostel-description {
+  margin: 8px 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.owner-dashboard.dark .hostel-description {
+  color: #ccc;
+}
+
 @media (max-width: 768px) {
   .section-header {
     flex-direction: column;
@@ -287,6 +446,22 @@
   
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-tabs {
+    flex-wrap: wrap;
+  }
+
+  .bookings-table,
+  .users-table {
+    font-size: 0.85rem;
+  }
+
+  .bookings-table th,
+  .bookings-table td,
+  .users-table th,
+  .users-table td {
+    padding: 10px;
   }
 }
 

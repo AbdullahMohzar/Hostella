@@ -1,84 +1,95 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../components/ThemeContext'
 import { useNavigate } from 'react-router-dom'
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  doc,
+  deleteDoc
+} from 'firebase/firestore'
+import { db } from '../firebase'
 import './UserDashboard.css'
 
 function UserDashboard() {
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile, updateUserProfile } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('bookings')
   const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [profileData, setProfileData] = useState({
-    name: currentUser?.displayName || '',
-    email: currentUser?.email || '',
+    name: '',
+    email: '',
     phone: '',
     address: '',
     bio: ''
   })
 
-  // Sample bookings data
-  const [bookings, setBookings] = useState([
-    {
-      id: 1,
-      hostelName: 'Sunset Hostel',
-      hostelId: 1,
-      checkIn: '2024-01-15',
-      checkOut: '2024-01-20',
-      status: 'confirmed',
-      price: 125,
-      bookingDate: '2024-01-10'
-    },
-    {
-      id: 2,
-      hostelName: 'Mountain View Hostel',
-      hostelId: 2,
-      checkIn: '2024-02-01',
-      checkOut: '2024-02-05',
-      status: 'pending',
-      price: 120,
-      bookingDate: '2024-01-25'
-    },
-    {
-      id: 3,
-      hostelName: 'Riverside Hostel',
-      hostelId: 3,
-      checkIn: '2024-03-10',
-      checkOut: '2024-03-15',
-      status: 'confirmed',
-      price: 140,
-      bookingDate: '2024-02-28'
-    }
-  ])
+  const [bookings, setBookings] = useState([])
+  const [availableHostels, setAvailableHostels] = useState([])
 
-  // Sample available hostels for booking
-  const availableHostels = [
-    {
-      id: 1,
-      name: 'Sunset Hostel',
-      location: 'Downtown',
-      price: 25,
-      rating: 4.5,
-      available: true
-    },
-    {
-      id: 2,
-      name: 'Mountain View Hostel',
-      location: 'City Center',
-      price: 30,
-      rating: 4.8,
-      available: true
-    },
-    {
-      id: 3,
-      name: 'Riverside Hostel',
-      location: 'Waterfront',
-      price: 28,
-      rating: 4.3,
-      available: true
+  // Load profile data from Firestore
+  useEffect(() => {
+    if (userProfile) {
+      setProfileData({
+        name: userProfile.displayName || currentUser?.displayName || '',
+        email: userProfile.email || currentUser?.email || '',
+        phone: userProfile.phone || '',
+        address: userProfile.location || '',
+        bio: userProfile.bio || ''
+      })
     }
-  ]
+  }, [userProfile, currentUser])
+
+  // Load bookings from Firestore
+  useEffect(() => {
+    const loadBookings = async () => {
+      if (!currentUser) return
+      
+      try {
+        const bookingsQuery = query(
+          collection(db, 'bookings'),
+          where('userId', '==', currentUser.uid)
+        )
+        const querySnapshot = await getDocs(bookingsQuery)
+        const bookingsData = []
+        querySnapshot.forEach((doc) => {
+          bookingsData.push({ id: doc.id, ...doc.data() })
+        })
+        setBookings(bookingsData.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate)))
+      } catch (error) {
+        console.error('Error loading bookings:', error)
+      }
+    }
+
+    loadBookings()
+  }, [currentUser])
+
+  // Load available hostels from Firestore
+  useEffect(() => {
+    const loadHostels = async () => {
+      try {
+        const hostelsQuery = query(collection(db, 'hostels'))
+        const querySnapshot = await getDocs(hostelsQuery)
+        const hostelsData = []
+        querySnapshot.forEach((doc) => {
+          hostelsData.push({ id: doc.id, ...doc.data() })
+        })
+        setAvailableHostels(hostelsData)
+        setLoading(false)
+      } catch (error) {
+        console.error('Error loading hostels:', error)
+        setLoading(false)
+      }
+    }
+
+    loadHostels()
+  }, [])
 
   const [bookingForm, setBookingForm] = useState({
     hostelId: '',
@@ -94,12 +105,21 @@ function UserDashboard() {
     })
   }
 
-  const handleProfileSubmit = (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault()
-    // In a real app, this would update the user profile in Firebase
-    console.log('Profile updated:', profileData)
-    setShowProfileEdit(false)
-    alert('Profile updated successfully!')
+    try {
+      await updateUserProfile(currentUser.uid, {
+        displayName: profileData.name,
+        phone: profileData.phone,
+        location: profileData.address,
+        bio: profileData.bio
+      })
+      setShowProfileEdit(false)
+      alert('Profile updated successfully!')
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      alert('Failed to update profile. Please try again.')
+    }
   }
 
   const handleBookingFormChange = (e) => {
@@ -109,43 +129,68 @@ function UserDashboard() {
     })
   }
 
-  const handleMakeBooking = (e) => {
+  const handleMakeBooking = async (e) => {
     e.preventDefault()
     if (!bookingForm.hostelId || !bookingForm.checkIn || !bookingForm.checkOut) {
       alert('Please fill in all booking details')
       return
     }
 
-    const selectedHostel = availableHostels.find(h => h.id === parseInt(bookingForm.hostelId))
-    const nights = Math.ceil((new Date(bookingForm.checkOut) - new Date(bookingForm.checkIn)) / (1000 * 60 * 60 * 24))
-    const totalPrice = selectedHostel.price * nights * bookingForm.guests
+    try {
+      const selectedHostel = availableHostels.find(h => h.id === bookingForm.hostelId)
+      if (!selectedHostel) {
+        alert('Hostel not found')
+        return
+      }
 
-    const newBooking = {
-      id: Date.now(),
-      hostelName: selectedHostel.name,
-      hostelId: selectedHostel.id,
-      checkIn: bookingForm.checkIn,
-      checkOut: bookingForm.checkOut,
-      status: 'pending',
-      price: totalPrice,
-      bookingDate: new Date().toISOString().split('T')[0],
-      guests: bookingForm.guests
+      const nights = Math.ceil((new Date(bookingForm.checkOut) - new Date(bookingForm.checkIn)) / (1000 * 60 * 60 * 24))
+      const totalPrice = selectedHostel.price * nights * bookingForm.guests
+
+      const newBooking = {
+        userId: currentUser.uid,
+        hostelId: bookingForm.hostelId,
+        hostelName: selectedHostel.name,
+        checkIn: bookingForm.checkIn,
+        checkOut: bookingForm.checkOut,
+        status: 'pending',
+        price: totalPrice,
+        guests: bookingForm.guests,
+        bookingDate: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      }
+
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, 'bookings'), newBooking)
+      
+      // Update local state
+      setBookings([{ id: docRef.id, ...newBooking }, ...bookings])
+      setBookingForm({ hostelId: '', checkIn: '', checkOut: '', guests: 1 })
+      alert('Booking request submitted successfully!')
+    } catch (error) {
+      console.error('Error creating booking:', error)
+      alert('Failed to create booking. Please try again.')
     }
-
-    setBookings([...bookings, newBooking])
-    setBookingForm({ hostelId: '', checkIn: '', checkOut: '', guests: 1 })
-    alert('Booking request submitted successfully!')
   }
 
   const handleViewHostel = (hostelId) => {
     navigate(`/hostel/${hostelId}`)
   }
 
-  const handleCancelBooking = (bookingId) => {
+  const handleCancelBooking = async (bookingId) => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? { ...booking, status: 'cancelled' } : booking
-      ))
+      try {
+        const bookingRef = doc(db, 'bookings', bookingId)
+        await updateDoc(bookingRef, { status: 'cancelled' })
+        
+        // Update local state
+        setBookings(bookings.map(booking => 
+          booking.id === bookingId ? { ...booking, status: 'cancelled' } : booking
+        ))
+        alert('Booking cancelled successfully!')
+      } catch (error) {
+        console.error('Error cancelling booking:', error)
+        alert('Failed to cancel booking. Please try again.')
+      }
     }
   }
 

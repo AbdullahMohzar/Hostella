@@ -1,6 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../components/ThemeContext'
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  doc,
+  deleteDoc
+} from 'firebase/firestore'
+import { db } from '../firebase'
 import './OwnerDashboard.css'
 
 function OwnerDashboard() {
@@ -9,99 +20,100 @@ function OwnerDashboard() {
   const [activeTab, setActiveTab] = useState('hostels')
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingHostel, setEditingHostel] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
     location: '',
     price: '',
-    description: ''
+    description: '',
+    beds: '',
+    rating: 4.5,
+    reviews: 0,
+    image: '',
+    hasRoommates: false
   })
 
-  // Sample hostels data
-  const [hostels, setHostels] = useState([
-    {
-      id: 1,
-      name: 'Sunset Hostel',
-      location: 'Downtown',
-      price: 25,
-      bookings: 12,
-      revenue: 3000,
-      description: 'A cozy hostel in the heart of downtown'
-    },
-    {
-      id: 2,
-      name: 'Mountain View Hostel',
-      location: 'City Center',
-      price: 30,
-      bookings: 8,
-      revenue: 2400,
-      description: 'Beautiful views of the mountains'
-    }
-  ])
+  const [hostels, setHostels] = useState([])
 
-  // Sample users data
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john@example.com',
-      role: 'user',
-      bookings: 3,
-      status: 'active'
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      role: 'user',
-      bookings: 5,
-      status: 'active'
-    },
-    {
-      id: 3,
-      name: 'Bob Johnson',
-      email: 'bob@example.com',
-      role: 'user',
-      bookings: 1,
-      status: 'inactive'
-    }
-  ])
+  const [users, setUsers] = useState([])
+  const [allBookings, setAllBookings] = useState([])
 
-  // Sample all bookings data
-  const [allBookings, setAllBookings] = useState([
-    {
-      id: 1,
-      userName: 'John Doe',
-      userEmail: 'john@example.com',
-      hostelName: 'Sunset Hostel',
-      checkIn: '2024-01-15',
-      checkOut: '2024-01-20',
-      status: 'confirmed',
-      price: 125,
-      bookingDate: '2024-01-10'
-    },
-    {
-      id: 2,
-      userName: 'Jane Smith',
-      userEmail: 'jane@example.com',
-      hostelName: 'Mountain View Hostel',
-      checkIn: '2024-02-01',
-      checkOut: '2024-02-05',
-      status: 'pending',
-      price: 120,
-      bookingDate: '2024-01-25'
-    },
-    {
-      id: 3,
-      userName: 'Bob Johnson',
-      userEmail: 'bob@example.com',
-      hostelName: 'Sunset Hostel',
-      checkIn: '2024-03-10',
-      checkOut: '2024-03-15',
-      status: 'confirmed',
-      price: 125,
-      bookingDate: '2024-02-28'
+  // Load hostels from Firestore
+  useEffect(() => {
+    const loadHostels = async () => {
+      if (!currentUser) return
+      
+      try {
+        const hostelsQuery = query(
+          collection(db, 'hostels'),
+          where('ownerId', '==', currentUser.uid)
+        )
+        const querySnapshot = await getDocs(hostelsQuery)
+        const hostelsData = []
+        querySnapshot.forEach((doc) => {
+          hostelsData.push({ id: doc.id, ...doc.data() })
+        })
+        setHostels(hostelsData)
+        setLoading(false)
+      } catch (error) {
+        console.error('Error loading hostels:', error)
+        setLoading(false)
+      }
     }
-  ])
+
+    loadHostels()
+  }, [currentUser])
+
+  // Load all bookings from Firestore
+  useEffect(() => {
+    const loadBookings = async () => {
+      if (!currentUser) return
+      
+      try {
+        // Get all bookings for hostels owned by this owner
+        const bookingsQuery = query(collection(db, 'bookings'))
+        const querySnapshot = await getDocs(bookingsQuery)
+        const bookingsData = []
+        const ownerHostelIds = hostels.map(h => h.id)
+        
+        querySnapshot.forEach((doc) => {
+          const booking = { id: doc.id, ...doc.data() }
+          if (ownerHostelIds.includes(booking.hostelId)) {
+            bookingsData.push(booking)
+          }
+        })
+        setAllBookings(bookingsData.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate)))
+      } catch (error) {
+        console.error('Error loading bookings:', error)
+      }
+    }
+
+    if (hostels.length > 0) {
+      loadBookings()
+    }
+  }, [hostels, currentUser])
+
+  // Load users from Firestore
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'user')
+        )
+        const querySnapshot = await getDocs(usersQuery)
+        const usersData = []
+        querySnapshot.forEach((doc) => {
+          usersData.push({ id: doc.id, ...doc.data() })
+        })
+        setUsers(usersData)
+      } catch (error) {
+        console.error('Error loading users:', error)
+      }
+    }
+
+    loadUsers()
+  }, [])
 
   const handleInputChange = (e) => {
     setFormData({
@@ -110,61 +122,128 @@ function OwnerDashboard() {
     })
   }
 
-  const handleAddHostel = (e) => {
+  const handleAddHostel = async (e) => {
     e.preventDefault()
-    const newHostel = {
-      id: Date.now(),
-      name: formData.name,
-      location: formData.location,
-      price: parseFloat(formData.price),
-      bookings: 0,
-      revenue: 0,
-      description: formData.description
+    if (!currentUser) return
+    
+    try {
+      const newHostel = {
+        ownerId: currentUser.uid,
+        name: formData.name,
+        location: formData.location,
+        price: parseFloat(formData.price),
+        beds: parseInt(formData.beds) || 0,
+        rating: parseFloat(formData.rating) || 4.5,
+        reviews: parseInt(formData.reviews) || 0,
+        description: formData.description || '',
+        image: formData.image || '',
+        hasRoommates: formData.hasRoommates || false,
+        bookings: 0,
+        revenue: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      
+      const docRef = await addDoc(collection(db, 'hostels'), newHostel)
+      setHostels([...hostels, { id: docRef.id, ...newHostel }])
+      setFormData({ name: '', location: '', price: '', description: '', beds: '', rating: 4.5, reviews: 0, image: '', hasRoommates: false })
+      setShowAddForm(false)
+      alert('Hostel added successfully!')
+    } catch (error) {
+      console.error('Error adding hostel:', error)
+      alert('Failed to add hostel. Please try again.')
     }
-    setHostels([...hostels, newHostel])
-    setFormData({ name: '', location: '', price: '', description: '' })
-    setShowAddForm(false)
   }
 
   const handleEditHostel = (hostel) => {
     setEditingHostel(hostel)
     setFormData({
-      name: hostel.name,
-      location: hostel.location,
-      price: hostel.price.toString(),
-      description: hostel.description || ''
+      name: hostel.name || '',
+      location: hostel.location || '',
+      price: hostel.price?.toString() || '',
+      description: hostel.description || '',
+      beds: hostel.beds?.toString() || '',
+      rating: hostel.rating || 4.5,
+      reviews: hostel.reviews?.toString() || '0',
+      image: hostel.image || '',
+      hasRoommates: hostel.hasRoommates || false
     })
     setShowAddForm(true)
   }
 
-  const handleUpdateHostel = (e) => {
+  const handleUpdateHostel = async (e) => {
     e.preventDefault()
-    setHostels(hostels.map(hostel => 
-      hostel.id === editingHostel.id
-        ? { ...hostel, ...formData, price: parseFloat(formData.price) }
-        : hostel
-    ))
-    setEditingHostel(null)
-    setFormData({ name: '', location: '', price: '', description: '' })
-    setShowAddForm(false)
-  }
-
-  const handleDeleteHostel = (id) => {
-    if (window.confirm('Are you sure you want to delete this hostel?')) {
-      setHostels(hostels.filter(hostel => hostel.id !== id))
+    if (!editingHostel) return
+    
+    try {
+      const hostelRef = doc(db, 'hostels', editingHostel.id)
+      await updateDoc(hostelRef, {
+        name: formData.name,
+        location: formData.location,
+        price: parseFloat(formData.price),
+        beds: parseInt(formData.beds) || 0,
+        rating: parseFloat(formData.rating) || 4.5,
+        reviews: parseInt(formData.reviews) || 0,
+        description: formData.description || '',
+        image: formData.image || '',
+        hasRoommates: formData.hasRoommates || false,
+        updatedAt: new Date().toISOString()
+      })
+      
+      setHostels(hostels.map(hostel => 
+        hostel.id === editingHostel.id
+          ? { ...hostel, ...formData, price: parseFloat(formData.price), beds: parseInt(formData.beds) || 0 }
+          : hostel
+      ))
+      setEditingHostel(null)
+      setFormData({ name: '', location: '', price: '', description: '', beds: '', rating: 4.5, reviews: 0, image: '', hasRoommates: false })
+      setShowAddForm(false)
+      alert('Hostel updated successfully!')
+    } catch (error) {
+      console.error('Error updating hostel:', error)
+      alert('Failed to update hostel. Please try again.')
     }
   }
 
-  const handleUserStatusChange = (userId, newStatus) => {
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, status: newStatus } : user
-    ))
+  const handleDeleteHostel = async (id) => {
+    if (window.confirm('Are you sure you want to delete this hostel?')) {
+      try {
+        await deleteDoc(doc(db, 'hostels', id))
+        setHostels(hostels.filter(hostel => hostel.id !== id))
+        alert('Hostel deleted successfully!')
+      } catch (error) {
+        console.error('Error deleting hostel:', error)
+        alert('Failed to delete hostel. Please try again.')
+      }
+    }
   }
 
-  const handleBookingStatusChange = (bookingId, newStatus) => {
-    setAllBookings(allBookings.map(booking => 
-      booking.id === bookingId ? { ...booking, status: newStatus } : booking
-    ))
+  const handleUserStatusChange = async (userId, newStatus) => {
+    try {
+      const userRef = doc(db, 'users', userId)
+      await updateDoc(userRef, { status: newStatus })
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, status: newStatus } : user
+      ))
+      alert('User status updated successfully!')
+    } catch (error) {
+      console.error('Error updating user status:', error)
+      alert('Failed to update user status. Please try again.')
+    }
+  }
+
+  const handleBookingStatusChange = async (bookingId, newStatus) => {
+    try {
+      const bookingRef = doc(db, 'bookings', bookingId)
+      await updateDoc(bookingRef, { status: newStatus })
+      setAllBookings(allBookings.map(booking => 
+        booking.id === bookingId ? { ...booking, status: newStatus } : booking
+      ))
+      alert('Booking status updated successfully!')
+    } catch (error) {
+      console.error('Error updating booking status:', error)
+      alert('Failed to update booking status. Please try again.')
+    }
   }
 
   const totalRevenue = hostels.reduce((sum, hostel) => sum + hostel.revenue, 0)
@@ -232,7 +311,7 @@ function OwnerDashboard() {
               <button
                 onClick={() => {
                   setEditingHostel(null)
-                  setFormData({ name: '', location: '', price: '', description: '' })
+                  setFormData({ name: '', location: '', price: '', description: '', beds: '', rating: 4.5, reviews: 0, image: '', hasRoommates: false })
                   setShowAddForm(!showAddForm)
                 }}
                 className="add-button"
