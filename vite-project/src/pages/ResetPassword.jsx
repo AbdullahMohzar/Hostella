@@ -19,7 +19,8 @@ function ResetPassword() {
       setMessage('')
       setError('')
       setLoading(true)
-      await resetPassword(email)
+      await resetPassword(email, `${window.location.origin}/set-new-password`) 
+      // pass your custom URL as redirect
       setMessage('Check your inbox for further instructions')
     } catch (err) {
       setError('Failed to reset password: ' + err.message)
@@ -32,7 +33,6 @@ function ResetPassword() {
     <div className={`reset-password-page ${theme}`}>
       <div className="reset-container">
         <div className="reset-card">
-          {/* Icon */}
           <div className="reset-icon">
             <div className="icon-circle">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -42,7 +42,6 @@ function ResetPassword() {
             </div>
           </div>
 
-          {/* Header */}
           <h1 className="reset-title">Forgot Password?</h1>
           <p className="reset-subtitle">
             No worries! Enter your email and we'll send you reset instructions.
@@ -52,7 +51,6 @@ function ResetPassword() {
           {message && <div className="success-message">{message}</div>}
 
           <form onSubmit={handleSubmit} className="reset-form">
-            {/* Email Field */}
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
               <div className="input-wrapper">
@@ -72,7 +70,6 @@ function ResetPassword() {
               </div>
             </div>
 
-            {/* Send Reset Link Button */}
             <button 
               type="submit" 
               className="send-reset-button"
@@ -82,7 +79,6 @@ function ResetPassword() {
             </button>
           </form>
 
-          {/* Back to Sign In Link */}
           <div className="back-link">
             <Link to="/login" className="back-link-text">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -94,7 +90,6 @@ function ResetPassword() {
           </div>
         </div>
 
-        {/* Back to Home Link */}
         <div className="back-home-link">
           <Link to="/" className="back-link-text">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

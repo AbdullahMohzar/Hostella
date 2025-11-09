@@ -11,6 +11,7 @@ import HostelDetails from './pages/HostelDetails'
 import ResetPassword from './pages/ResetPassword'
 import AboutPage from './components/AboutPage'
 import ContactPage from './components/ContactPage'
+// import SetNewPassword from './pages/SetNewPassword'
 import './App.css'
 
 // ProtectedRoute component
@@ -45,6 +46,7 @@ function App() {
                 } />
                 <Route path="/hostel/:id" element={<HostelDetails />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                {/* <Route path="/set-new-password" element={<SetNewPassword />} /> */}
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
               </Routes>
