@@ -1,0 +1,288 @@
+.hostel-details {
+  min-height: calc(100vh - 180px);
+  padding: 40px 20px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.hostel-details.light {
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+.hostel-details.dark {
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+.details-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.back-button {
+  padding: 8px 16px;
+  background: none;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.hostel-details.light .back-button {
+  color: #333;
+  border-color: #ddd;
+}
+
+.hostel-details.light .back-button:hover {
+  background-color: #f0f0f0;
+}
+
+.hostel-details.dark .back-button {
+  color: #fff;
+  border-color: #555;
+}
+
+.hostel-details.dark .back-button:hover {
+  background-color: #2d2d2d;
+}
+
+.hostel-header {
+  margin-bottom: 30px;
+}
+
+.hostel-title {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.hostel-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.hostel-content {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 40px;
+}
+
+.hostel-images {
+  margin-bottom: 30px;
+}
+
+.main-image {
+  width: 100%;
+  height: 400px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.main-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-images {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.thumbnail-images img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.thumbnail-images img:hover {
+  transform: scale(1.05);
+}
+
+.hostel-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.description-section h2,
+.amenities-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.description-section p {
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+.amenities-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.amenity-tag {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.hostel-details.light .amenity-tag {
+  background-color: #e9ecef;
+  color: #333;
+}
+
+.hostel-details.dark .amenity-tag {
+  background-color: #2d2d2d;
+  color: #fff;
+}
+
+.booking-section {
+  position: sticky;
+  top: 180px;
+  height: fit-content;
+}
+
+.booking-card {
+  padding: 24px;
+  border-radius: 12px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hostel-details.light .booking-card {
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.hostel-details.dark .booking-card {
+  background-color: #2d2d2d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.price-display {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #ddd;
+}
+
+.hostel-details.dark .price-display {
+  border-bottom-color: #555;
+}
+
+.price-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #007bff;
+  margin-right: 8px;
+}
+
+.price-unit {
+  opacity: 0.7;
+  font-size: 1rem;
+}
+
+.booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.date-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.date-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.date-input label {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.date-input input {
+  padding: 12px 16px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.hostel-details.light .date-input input {
+  background-color: #fff;
+  color: #333;
+  border-color: #ddd;
+}
+
+.hostel-details.dark .date-input input {
+  background-color: #1a1a1a;
+  color: #fff;
+  border-color: #555;
+}
+
+.date-input input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.book-button {
+  padding: 14px 24px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.book-button:hover {
+  background-color: #0056b3;
+}
+
+@media (max-width: 968px) {
+  .hostel-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .booking-section {
+    position: static;
+  }
+  
+  .hostel-title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hostel-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .main-image {
+    height: 300px;
+  }
+  
+  .thumbnail-images {
+    grid-template-columns: 1fr;
+  }
+}
+

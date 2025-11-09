@@ -1,0 +1,115 @@
+.roommate-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.roommate-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.roommate-card-header {
+  position: relative;
+  height: 200px;
+}
+
+.roommate-card-image {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.roommate-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.roommate-card-match {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 123, 255, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  backdrop-filter: blur(10px);
+}
+
+.match-score {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.match-label {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.roommate-card-content {
+  padding: 16px;
+}
+
+.roommate-card-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 4px 0;
+}
+
+.roommate-card-occupation {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 0 4px 0;
+}
+
+.roommate-card-location {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0 0 12px 0;
+}
+
+.roommate-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.detail-label {
+  color: #666;
+}
+
+.detail-value {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.roommate-card-interests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.interest-tag {
+  padding: 4px 10px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: #666;
+}
+

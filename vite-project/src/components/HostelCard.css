@@ -1,0 +1,114 @@
+.hostel-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hostel-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.hostel-card-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+}
+
+.hostel-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.hostel-card:hover .hostel-card-image img {
+  transform: scale(1.05);
+}
+
+.hostel-card-content {
+  padding: 16px;
+}
+
+.hostel-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.hostel-card-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  flex: 1;
+}
+
+.hostel-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.rating-star {
+  font-size: 1rem;
+}
+
+.rating-value {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.rating-reviews {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.hostel-card-location {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.hostel-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hostel-card-info {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.hostel-beds,
+.hostel-roommates {
+  padding: 4px 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.hostel-card-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.price-amount {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.price-unit {
+  font-size: 0.9rem;
+  color: #666;
+}
+

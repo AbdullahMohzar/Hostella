@@ -1,46 +1,86 @@
-import { useState } from 'react'; // Removed useEffect
-import { auth, googleProvider, db } from '../firebase';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../components/ThemeContext'
+import './Login.css'
 
 function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const navigate = useNavigate();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { login, userRole, currentUser } = useAuth()
+  const { theme } = useTheme()
+  const navigate = useNavigate()
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : 'user';
-      navigate('/dashboard');
-    } catch (error) {
-      alert('Invalid credentials');
+  // If already logged in, redirect automatically
+  useEffect(() => {
+    if (currentUser && userRole) {
+      if (userRole === 'owner') navigate('/owner-dashboard')
+      else navigate('/user-dashboard')
     }
-  };
+  }, [currentUser, userRole, navigate])
 
-  const handleGoogleLogin = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
-      const role = userDoc.exists() ? userDoc.data().role : 'user';
-      navigate('/dashboard');
-    } catch (error) {
-      alert(error.message);
+      setError('')
+      setLoading(true)
+      await login(email, password)
+      // Redirect handled by useEffect
+    } catch (err) {
+      setError('Failed to log in: ' + err.message)
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleLogin} style={{ padding: '20px' }}>
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
-      <button type="submit">Login</button>
-      <button type="button" onClick={handleGoogleLogin}>Login with Google</button>
-      <a href="/reset-password">Forgot Password?</a>
-    </form>
-  );
+    <div className={`login ${theme}`}>
+      <div className="login-container">
+        <div className="login-card">
+          <h2 className="login-title">Login</h2>
+          {error && <div className="error-message">{error}</div>}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="Enter your email"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Enter your password"
+              />
+            </div>
+            <div className="form-footer">
+              <Link to="/reset-password" className="forgot-password">
+                Forgot Password?
+              </Link>
+            </div>
+            <button type="submit" className="submit-button" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
+          </form>
+          <div className="signup-link">
+            Don't have an account? <Link to="/signup">Sign up</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-export default Login;
+export default Login

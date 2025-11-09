@@ -1,0 +1,135 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  z-index: 1000;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.navbar.light {
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar.dark {
+  background-color: #2d2d2d;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.navbar.light .navbar-logo {
+  color: #333;
+}
+
+.navbar.dark .navbar-logo {
+  color: #fff;
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navbar-link {
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease, background-color 0.3s ease;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.navbar-link.navbar-button {
+  background-color: #007bff;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.navbar-link.navbar-button:hover {
+  background-color: #0056b3;
+  color: white;
+}
+
+.navbar.light .navbar-link {
+  color: #333;
+}
+
+.navbar.light .navbar-link:hover {
+  background-color: #f0f0f0;
+  color: #000;
+}
+
+.navbar.dark .navbar-link {
+  color: #fff;
+}
+
+.navbar.dark .navbar-link:hover {
+  background-color: #3d3d3d;
+  color: #fff;
+}
+
+.navbar-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.navbar-button:hover {
+  background-color: #0056b3;
+}
+
+.theme-toggle {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: transform 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .navbar-menu {
+    gap: 10px;
+  }
+  
+  .navbar-link {
+    font-size: 0.9rem;
+    padding: 6px 10px;
+  }
+  
+  .navbar-logo {
+    font-size: 1.2rem;
+  }
+}
+

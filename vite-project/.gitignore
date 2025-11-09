@@ -24,7 +24,7 @@ dist-ssr
 *.sln
 *.swo
 *.swp
-
+ 
 # Sensitive files
 src/firebase.js
 .env
