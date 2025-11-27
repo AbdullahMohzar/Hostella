@@ -17,6 +17,7 @@ import {
 
 import { updateProfile } from 'firebase/auth'
 import { db } from '../firebase'
+import { CompareHostels } from './CompareHostels'
 import './UserDashboard.css'
 
 function UserDashboard() {
@@ -38,40 +39,39 @@ function UserDashboard() {
   const [availableHostels, setAvailableHostels] = useState([])
 
   // Load profile data from Firestore
-  // Load profile from Firestore (REAL FIX)
-useEffect(() => {
-  const loadProfile = async () => {
-    if (!currentUser) return
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!currentUser) return
 
-    try {
-      const userDoc = doc(db, 'users', currentUser.uid)
-      const docSnap = await getDoc(userDoc)
+      try {
+        const userDoc = doc(db, 'users', currentUser.uid)
+        const docSnap = await getDoc(userDoc)
 
-      if (docSnap.exists()) {
-        const data = docSnap.data()
-        setProfileData({
-          name: data.displayName || currentUser.displayName || '',
-          email: data.email || currentUser.email || '',
-          phone: data.phone || '',
-          address: data.location || '',
-          bio: data.bio || ''
-        })
-      } else {
-        setProfileData({
-          name: currentUser.displayName || '',
-          email: currentUser.email || '',
-          phone: '',
-          address: '',
-          bio: ''
-        })
+        if (docSnap.exists()) {
+          const data = docSnap.data()
+          setProfileData({
+            name: data.displayName || currentUser.displayName || '',
+            email: data.email || currentUser.email || '',
+            phone: data.phone || '',
+            address: data.location || '',
+            bio: data.bio || ''
+          })
+        } else {
+          setProfileData({
+            name: currentUser.displayName || '',
+            email: currentUser.email || '',
+            phone: '',
+            address: '',
+            bio: ''
+          })
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error)
       }
-    } catch (error) {
-      console.error('Error loading profile:', error)
     }
-  }
 
-  loadProfile()
-}, [currentUser])
+    loadProfile()
+  }, [currentUser])
 
   // Load bookings from Firestore
   useEffect(() => {
@@ -133,33 +133,33 @@ useEffect(() => {
   }
 
   const handleProfileSubmit = async (e) => {
-  e.preventDefault()
-  if (!currentUser) return
+    e.preventDefault()
+    if (!currentUser) return
 
-  try {
-    // Update Firebase Auth name
-    await updateProfile(currentUser, {
-      displayName: profileData.name
-    })
+    try {
+      // Update Firebase Auth name
+      await updateProfile(currentUser, {
+        displayName: profileData.name
+      })
 
-    // SAVE TO FIRESTORE (THIS WAS MISSING!)
-    await setDoc(doc(db, 'users', currentUser.uid), {
-      displayName: profileData.name,
-      email: currentUser.email,
-      phone: profileData.phone,
-      location: profileData.address,
-      bio: profileData.bio,
-      role: 'user',
-      updatedAt: new Date().toISOString()
-    }, { merge: true })
+      // SAVE TO FIRESTORE
+      await setDoc(doc(db, 'users', currentUser.uid), {
+        displayName: profileData.name,
+        email: currentUser.email,
+        phone: profileData.phone,
+        location: profileData.address,
+        bio: profileData.bio,
+        role: 'user',
+        updatedAt: new Date().toISOString()
+      }, { merge: true })
 
-    setShowProfileEdit(false)
-    alert('Profile saved forever!')
-  } catch (error) {
-    console.error('Save failed:', error)
-    alert('Error: ' + error.message)
+      setShowProfileEdit(false)
+      alert('Profile saved forever!')
+    } catch (error) {
+      console.error('Save failed:', error)
+      alert('Error: ' + error.message)
+    }
   }
-}
 
   const handleBookingFormChange = (e) => {
     setBookingForm({
@@ -238,12 +238,12 @@ useEffect(() => {
     .reduce((sum, booking) => sum + booking.price, 0)
 
   const getMemberSince = () => {
-  const created = currentUser?.metadata?.creationTime
-  if (created) {
-    return new Date(created).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    const created = currentUser?.metadata?.creationTime
+    if (created) {
+      return new Date(created).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    }
+    return 'Nov 2025'
   }
-  return 'Nov 2025'
-}
 
   return (
     <div className={`user-dashboard ${theme}`}>
@@ -310,6 +310,12 @@ useEffect(() => {
             onClick={() => setActiveTab('new-booking')}
           >
             Make Booking
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'compare' ? 'active' : ''}`}
+            onClick={() => setActiveTab('compare')}
+          >
+            Compare Hostels
           </button>
         </div>
 
@@ -586,6 +592,13 @@ useEffect(() => {
                 Submit Booking Request
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Compare Hostels Tab */}
+        {activeTab === 'compare' && (
+          <div className="compare-section">
+            <CompareHostels />
           </div>
         )}
       </div>
