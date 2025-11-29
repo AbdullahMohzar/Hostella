@@ -3,7 +3,9 @@ import { useTheme } from '../components/ThemeContext'
 import HostelCard from '../components/HostelCard'
 import RoommateCard from '../components/RoommateCard'
 import SearchBar from '../components/SearchBar'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { CompareHostels } from './CompareHostels' // <--- 1. Import Comparison Component
+// import { SeedHostels } from '../components/SeedHostels'    // <--- 2. Import Seeder (Uncomment to use)
+import { collection, getDocs, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import heroImage from '../assets/2280feee79ed9810e3a864e738a4ea7ee9086c87.png'
 import './Home.css'
@@ -77,75 +79,7 @@ function Home() {
     }))
   }
 
-  const defaultHostels = [
-    {
-      id: '1',
-      name: 'Urban Nest Hostel',
-      location: 'Downtown, New York',
-      price: 45,
-      rating: 4.8,
-      reviews: 234,
-      image: 'https://images.unsplash.com/photo-1709805619372-40de3f158e83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBiZWRyb29tfGVufDF8fHx8MTc2MTU3OTE2NXww&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 12,
-      hasRoommates: true
-    },
-    {
-      id: '2',
-      name: 'Sunset Beach Hostel',
-      location: 'Santa Monica, LA',
-      price: 38,
-      rating: 4.6,
-      reviews: 189,
-      image: 'https://images.unsplash.com/photo-1721743169026-d18a016f8996?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzaGFyZWQlMjBhY2NvbW1vZGF0aW9ufGVufDF8fHx8MTc2MTU3OTE2NXww&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 8,
-      hasRoommates: true
-    },
-    {
-      id: '3',
-      name: 'The Modern Traveler',
-      location: 'Mission District, SF',
-      price: 52,
-      rating: 4.9,
-      reviews: 312,
-      image: 'https://images.unsplash.com/photo-1733348610896-52e34b27e70d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBob3N0ZWx8ZW58MXx8fHwxNzYxNTc5MTY1fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 15,
-      hasRoommates: false
-    },
-    {
-      id: '4',
-      name: 'Common Space Hostel',
-      location: 'Brooklyn, NY',
-      price: 42,
-      rating: 4.7,
-      reviews: 156,
-      image: 'https://images.unsplash.com/photo-1715310306143-787865a1b538?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBjb21tb24lMjBhcmVhfGVufDF8fHx8MTc2MTU3OTE2Nnww&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 10,
-      hasRoommates: true
-    },
-    {
-      id: '5',
-      name: 'City Lights Hostel',
-      location: 'Manhattan, NY',
-      price: 48,
-      rating: 4.5,
-      reviews: 203,
-      image: 'https://images.unsplash.com/photo-1709805619372-40de3f158e83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBiZWRyb29tfGVufDF8fHx8MTc2MTU3OTE2NXww&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 20,
-      hasRoommates: true
-    },
-    {
-      id: '6',
-      name: 'Backpacker\'s Paradise',
-      location: 'Austin, TX',
-      price: 35,
-      rating: 4.4,
-      reviews: 178,
-      image: 'https://images.unsplash.com/photo-1721743169026-d18a016f8996?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzaGFyZWQlMjBhY2NvbW1vZGF0aW9ufGVufDF8fHx8MTc2MTU3OTE2NXww&ixlib=rb-4.1.0&q=80&w=1080',
-      beds: 18,
-      hasRoommates: false
-    }
-  ]
-
+  // Hardcoded roommates data
   const roommates = [
     {
       id: '1',
@@ -270,15 +204,32 @@ function Home() {
               >
                 Roommates
               </button>
+              {/* 3. New Compare Button */}
+              <button 
+                className={`tab-button ${activeTab === 'compare' ? 'active' : ''}`}
+                onClick={() => setActiveTab('compare')}
+              >
+                Compare
+              </button>
             </div>
           </div>
 
+          {/* TAB CONTENT AREAS */}
+
+          {/* 1. Hostels Grid */}
           {activeTab === 'hostels' && (
             <div className="hostels-grid">
               {loading ? (
                 <div className="loading-message">Loading hostels...</div>
               ) : filteredHostels.length === 0 ? (
-                <div className="no-results">No hostels found matching your criteria.</div>
+                <div className="no-results">
+                    <p>No hostels found matching your criteria.</p>
+                    
+                    {/* Uncomment below to show Seeder Button if list is empty */}
+                    {/* <div style={{marginTop: '20px'}}>
+                         <SeedHostels /> 
+                    </div> */}
+                </div>
               ) : (
                 filteredHostels.map((hostel) => (
                   <HostelCard key={hostel.id} {...hostel} />
@@ -287,6 +238,7 @@ function Home() {
             </div>
           )}
 
+          {/* 2. Roommates Grid */}
           {activeTab === 'roommates' && (
             <div className="roommates-grid">
               {roommates.map((roommate) => (
@@ -294,6 +246,14 @@ function Home() {
               ))}
             </div>
           )}
+
+          {/* 3. Compare Hostels Tool */}
+          {activeTab === 'compare' && (
+            <div className="compare-container">
+               <CompareHostels />
+            </div>
+          )}
+
         </div>
       </section>
 
@@ -312,4 +272,3 @@ function Home() {
 }
 
 export default Home
-
