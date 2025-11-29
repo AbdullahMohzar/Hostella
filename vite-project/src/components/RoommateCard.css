@@ -1,115 +1,158 @@
 .roommate-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  position: relative; /* Needed for hide button */
 }
 
 .roommate-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
 }
 
-.roommate-card-header {
-  position: relative;
+.roommate-image-container {
   height: 200px;
-}
-
-.roommate-card-image {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  position: relative;
+  background-color: #f3f4f6;
 }
 
-.roommate-card-image img {
+.roommate-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.roommate-card-match {
+.match-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(0, 123, 255, 0.9);
+  top: 10px;
+  right: 10px;
   color: white;
-  padding: 8px 12px;
+  padding: 4px 12px;
   border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  backdrop-filter: blur(10px);
-}
-
-.match-score {
-  font-size: 1.2rem;
   font-weight: 700;
-}
-
-.match-label {
-  font-size: 0.7rem;
-  opacity: 0.9;
-}
-
-.roommate-card-content {
-  padding: 16px;
-}
-
-.roommate-card-name {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 4px 0;
-}
-
-.roommate-card-occupation {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0 0 4px 0;
-}
-
-.roommate-card-location {
-  color: #666;
   font-size: 0.85rem;
-  margin: 0 0 12px 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-.roommate-card-details {
+/* --- NEW HIDE BUTTON STYLE --- */
+.hide-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.85); /* Semi-transparent background */
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #ef4444; /* Red icon */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: background 0.2s, transform 0.2s;
+    opacity: 0.8;
+}
+
+.hide-btn:hover {
+    background: #fef2f2;
+    transform: scale(1.1);
+    opacity: 1;
+}
+/* ----------------------------- */
+
+.roommate-content {
+  padding: 20px;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
 }
 
-.detail-item {
+.roommate-header {
+  margin-bottom: 12px;
+}
+
+.roommate-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.roommate-job {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 2px 0 0 0;
+}
+
+.roommate-details {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: #4b5563;
   font-size: 0.9rem;
 }
 
-.detail-label {
-  color: #666;
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
 }
 
-.detail-value {
-  font-weight: 600;
-  color: #1a1a1a;
+.budget-row {
+  margin: 4px 0 0 0;
+  font-weight: 500;
 }
 
-.roommate-card-interests {
+.budget-row span {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.roommate-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-bottom: 16px;
 }
 
-.interest-tag {
+.tag {
+  background: #f3f4f6;
   padding: 4px 10px;
-  background-color: #f0f0f0;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  color: #666;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #4b5563;
+  font-weight: 500;
 }
 
+.roommate-bio {
+  font-style: italic;
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.contact-btn {
+  width: 100%;
+  padding: 10px;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.contact-btn:hover {
+  background: #374151;
+}
