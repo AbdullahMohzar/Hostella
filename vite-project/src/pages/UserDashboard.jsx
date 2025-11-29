@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../components/ThemeContext'
 import { useNavigate } from 'react-router-dom'
@@ -10,7 +10,6 @@ import {
   addDoc, 
   updateDoc, 
   doc,
-  deleteDoc,
   setDoc,
   getDoc
 } from 'firebase/firestore'
@@ -18,27 +17,42 @@ import {
 import { updateProfile } from 'firebase/auth'
 import { db } from '../firebase'
 import { CompareHostels } from './CompareHostels'
+import { Notifications } from './Notifications'
+import { Wishlist } from './MyWishlist'
+import { Camera, MapPin, Calendar, Clock, Plus, X } from 'lucide-react'
 import './UserDashboard.css'
 
 function UserDashboard() {
-  const { currentUser, userProfile, updateUserProfile } = useAuth()
+  const { currentUser } = useAuth()
   const { theme } = useTheme()
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
+
   const [activeTab, setActiveTab] = useState('profile')
   const [showProfileEdit, setShowProfileEdit] = useState(false)
-  const [loading, setLoading] = useState(true)
+  
+  // --- STATE FOR PROFILE ---
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
-    bio: ''
+    bio: '',
+    photoURL: '',
+    age: '',
+    gender: 'Prefer not to say',
+    occupation: 'Student',
+    smoker: 'No',
+    sleepSchedule: 'Flexible',
+    cleanliness: 'Average', 
+    lookingForRoommate: false,
+    totalSpent: 0 // <--- Will store the aggregate value
   })
 
   const [bookings, setBookings] = useState([])
   const [availableHostels, setAvailableHostels] = useState([])
 
-  // Load profile data from Firestore
+  // 1. Load Profile Data (Ensuring totalSpent is a Number)
   useEffect(() => {
     const loadProfile = async () => {
       if (!currentUser) return
@@ -54,30 +68,38 @@ function UserDashboard() {
             email: data.email || currentUser.email || '',
             phone: data.phone || '',
             address: data.location || '',
-            bio: data.bio || ''
+            bio: data.bio || '',
+            photoURL: data.photoURL || currentUser.photoURL || '',
+            age: data.age || '',
+            gender: data.gender || 'Prefer not to say',
+            occupation: data.occupation || 'Student',
+            smoker: data.smoker || 'No',
+            sleepSchedule: data.sleepSchedule || 'Flexible',
+            cleanliness: data.cleanliness || 'Average',
+            lookingForRoommate: data.lookingForRoommate || false,
+            // FORCE NUMBER CONVERSION HERE to fix any string data in DB
+            totalSpent: parseFloat(data.totalSpent) || 0 
           })
         } else {
-          setProfileData({
+          setProfileData(prev => ({
+            ...prev,
             name: currentUser.displayName || '',
             email: currentUser.email || '',
-            phone: '',
-            address: '',
-            bio: ''
-          })
+            photoURL: currentUser.photoURL || '',
+            totalSpent: 0
+          }))
         }
       } catch (error) {
         console.error('Error loading profile:', error)
       }
     }
-
     loadProfile()
   }, [currentUser])
 
-  // Load bookings from Firestore
+  // 2. Load Bookings
   useEffect(() => {
     const loadBookings = async () => {
       if (!currentUser) return
-      
       try {
         const bookingsQuery = query(
           collection(db, 'bookings'),
@@ -93,11 +115,10 @@ function UserDashboard() {
         console.error('Error loading bookings:', error)
       }
     }
-
     loadBookings()
   }, [currentUser])
 
-  // Load available hostels from Firestore
+  // 3. Load Hostels
   useEffect(() => {
     const loadHostels = async () => {
       try {
@@ -108,13 +129,10 @@ function UserDashboard() {
           hostelsData.push({ id: doc.id, ...doc.data() })
         })
         setAvailableHostels(hostelsData)
-        setLoading(false)
       } catch (error) {
         console.error('Error loading hostels:', error)
-        setLoading(false)
       }
     }
-
     loadHostels()
   }, [])
 
@@ -125,36 +143,72 @@ function UserDashboard() {
     guests: 1
   })
 
+  // --- HELPER FUNCTIONS ---
+  const getNights = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return 0;
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    const diff = end - start;
+    if (diff <= 0) return 0; 
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  const calculateBookingPrice = (pricePerNight, nights, guests) => {
+     const safePrice = parseFloat(pricePerNight) || 0;
+     const safeNights = parseInt(nights) || 0;
+     const safeGuests = parseInt(guests) || 1;
+     return safePrice * safeNights * safeGuests;
+  }
+
   const handleProfileChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setProfileData({
       ...profileData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     })
   }
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Image size too large! Please select an image under 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileData(prev => ({ ...prev, photoURL: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault()
     if (!currentUser) return
-
     try {
-      // Update Firebase Auth name
-      await updateProfile(currentUser, {
-        displayName: profileData.name
-      })
-
-      // SAVE TO FIRESTORE
+      await updateProfile(currentUser, { displayName: profileData.name })
       await setDoc(doc(db, 'users', currentUser.uid), {
         displayName: profileData.name,
         email: currentUser.email,
         phone: profileData.phone,
         location: profileData.address,
         bio: profileData.bio,
+        photoURL: profileData.photoURL,
         role: 'user',
+        age: profileData.age,
+        gender: profileData.gender,
+        occupation: profileData.occupation,
+        smoker: profileData.smoker,
+        sleepSchedule: profileData.sleepSchedule,
+        cleanliness: profileData.cleanliness,
+        lookingForRoommate: profileData.lookingForRoommate,
         updatedAt: new Date().toISOString()
+        // Note: We do NOT include totalSpent here to avoid overwriting it with old state if changed elsewhere
       }, { merge: true })
-
       setShowProfileEdit(false)
-      alert('Profile saved forever!')
+      alert('Profile updated successfully!')
     } catch (error) {
       console.error('Save failed:', error)
       alert('Error: ' + error.message)
@@ -170,9 +224,16 @@ function UserDashboard() {
 
   const handleMakeBooking = async (e) => {
     e.preventDefault()
+    
     if (!bookingForm.hostelId || !bookingForm.checkIn || !bookingForm.checkOut) {
       alert('Please fill in all booking details')
       return
+    }
+
+    const nights = getNights(bookingForm.checkIn, bookingForm.checkOut);
+    if (nights <= 0) {
+        alert("Invalid dates. Check-out must be after Check-in.");
+        return;
     }
 
     try {
@@ -182,29 +243,42 @@ function UserDashboard() {
         return
       }
 
-      const nights = Math.ceil((new Date(bookingForm.checkOut) - new Date(bookingForm.checkIn)) / (1000 * 60 * 60 * 24))
-      const totalPrice = selectedHostel.price * nights * bookingForm.guests
+      const totalPrice = calculateBookingPrice(selectedHostel.price, nights, bookingForm.guests);
 
       const newBooking = {
         userId: currentUser.uid,
         hostelId: bookingForm.hostelId,
         hostelName: selectedHostel.name,
+        hostelImage: selectedHostel.image || '', 
         checkIn: bookingForm.checkIn,
         checkOut: bookingForm.checkOut,
         status: 'pending',
-        price: totalPrice,
-        guests: bookingForm.guests,
+        price: totalPrice, 
+        guests: parseInt(bookingForm.guests),
         bookingDate: new Date().toISOString(),
+        ownerId: selectedHostel.ownerId, 
+        location: selectedHostel.location,
         createdAt: new Date().toISOString()
       }
 
-      // Save to Firestore
+      // 1. Save Booking
       const docRef = await addDoc(collection(db, 'bookings'), newBooking)
       
-      // Update local state
+      // 2. Update Total Spent (Read-Modify-Write to ensure numbers)
+      const currentSpent = parseFloat(profileData.totalSpent) || 0;
+      const newTotalSpent = currentSpent + totalPrice;
+      
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        totalSpent: newTotalSpent
+      });
+
+      // 3. Update UI
       setBookings([{ id: docRef.id, ...newBooking }, ...bookings])
+      setProfileData(prev => ({ ...prev, totalSpent: newTotalSpent }))
       setBookingForm({ hostelId: '', checkIn: '', checkOut: '', guests: 1 })
-      alert('Booking request submitted successfully!')
+      
+      alert(`Booking successful! Total billed: $${totalPrice}`)
+      setActiveTab('bookings')
     } catch (error) {
       console.error('Error creating booking:', error)
       alert('Failed to create booking. Please try again.')
@@ -216,26 +290,37 @@ function UserDashboard() {
   }
 
   const handleCancelBooking = async (bookingId) => {
-    if (window.confirm('Are you sure you want to cancel this booking?')) {
+    if (window.confirm('Are you sure you want to cancel this booking? Refund will be processed.')) {
       try {
+        const bookingToCancel = bookings.find(b => b.id === bookingId);
+        if (!bookingToCancel) return;
+
+        const refundAmount = parseFloat(bookingToCancel.price) || 0;
+        
+        // 1. Update Booking Status
         const bookingRef = doc(db, 'bookings', bookingId)
         await updateDoc(bookingRef, { status: 'cancelled' })
         
-        // Update local state
+        // 2. Update Total Spent (Subtract)
+        const currentSpent = parseFloat(profileData.totalSpent) || 0;
+        const newTotalSpent = Math.max(0, currentSpent - refundAmount);
+        
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          totalSpent: newTotalSpent
+        });
+
+        // 3. Update UI
         setBookings(bookings.map(booking => 
           booking.id === bookingId ? { ...booking, status: 'cancelled' } : booking
         ))
-        alert('Booking cancelled successfully!')
+        setProfileData(prev => ({ ...prev, totalSpent: newTotalSpent }))
+
+        alert('Booking cancelled successfully! Amount refunded.')
       } catch (error) {
         console.error('Error cancelling booking:', error)
-        alert('Failed to cancel booking. Please try again.')
       }
     }
   }
-
-  const totalSpent = bookings
-    .filter(b => b.status === 'confirmed')
-    .reduce((sum, booking) => sum + booking.price, 0)
 
   const getMemberSince = () => {
     const created = currentUser?.metadata?.creationTime
@@ -243,6 +328,13 @@ function UserDashboard() {
       return new Date(created).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     }
     return 'Nov 2025'
+  }
+
+  const formatBookingDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
   }
 
   return (
@@ -258,324 +350,347 @@ function UserDashboard() {
         {/* Stats Section */}
         <div className="stats-section">
           <div className="stat-card">
-            <div className="stat-icon calendar-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="6" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="2"/>
-                <path d="M3 10h18" stroke="currentColor" strokeWidth="2"/>
-                <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
+            <div className="stat-icon calendar-icon">📅</div>
             <h3 className="stat-label">Total Bookings</h3>
             <p className="stat-value">{bookings.length}</p>
           </div>
           <div className="stat-card">
-            <div className="stat-icon check-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                <path d="M8 12l3 3 5-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
+            <div className="stat-icon check-icon">✔️</div>
             <h3 className="stat-label">Confirmed</h3>
             <p className="stat-value">
               {bookings.filter(b => b.status === 'confirmed').length}
             </p>
           </div>
           <div className="stat-card">
-            <div className="stat-icon dollar-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
+            <div className="stat-icon dollar-icon">💰</div>
             <h3 className="stat-label">Total Spent</h3>
-            <p className="stat-value">${totalSpent.toLocaleString()}</p>
+            {/* Displaying the stored totalSpent from profileData */}
+            <p className="stat-value">${(profileData.totalSpent || 0).toLocaleString()}</p>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="dashboard-tabs">
-          <button 
-            className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            My Profile
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('bookings')}
-          >
-            Booking History
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'new-booking' ? 'active' : ''}`}
-            onClick={() => setActiveTab('new-booking')}
-          >
-            Make Booking
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'compare' ? 'active' : ''}`}
-            onClick={() => setActiveTab('compare')}
-          >
-            Compare Hostels
-          </button>
+          <button className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>My Profile</button>
+          <button className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>Booking History</button>
+          <button className={`tab-button ${activeTab === 'new-booking' ? 'active' : ''}`} onClick={() => setActiveTab('new-booking')}>Make Booking</button>
+          <button className={`tab-button ${activeTab === 'compare' ? 'active' : ''}`} onClick={() => setActiveTab('compare')}>Compare Hostels</button>
+          <button className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>Notifications</button>
+          <button className={`tab-button ${activeTab === 'wishlist' ? 'active' : ''}`} onClick={() => setActiveTab('wishlist')}>My Wishlist</button>
         </div>
 
-        {/* Profile Tab */}
+        {/* PROFILE TAB */}
         {activeTab === 'profile' && (
           <div className="profile-section">
             <div className="section-header">
               <h3 className="section-title">My Profile</h3>
-              <button
-                onClick={() => setShowProfileEdit(!showProfileEdit)}
-                className="edit-button"
-              >
+              <button onClick={() => setShowProfileEdit(!showProfileEdit)} className="edit-button">
                 {showProfileEdit ? 'Cancel' : 'Edit Profile'}
               </button>
             </div>
 
             {showProfileEdit ? (
               <form onSubmit={handleProfileSubmit} className="profile-form">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={profileData.name}
-                    onChange={handleProfileChange}
-                    required
+                
+                {/* --- Profile Picture Upload --- */}
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px'}}>
+                  <div style={{
+                    width: '100px', height: '100px', borderRadius: '50%', overflow: 'hidden', 
+                    background: '#f3f4f6', border: '2px solid #e5e7eb', marginBottom: '15px',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center'
+                  }}>
+                    {profileData.photoURL ? (
+                      <img src={profileData.photoURL} alt="Profile" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                    ) : (
+                      <span style={{fontSize: '2rem', color: '#9ca3af'}}>{(profileData.name || 'U').charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    onChange={handlePhotoChange}
+                    accept="image/*"
+                    style={{display: 'none'}}
                   />
+                  <button 
+                    type="button"
+                    onClick={() => fileInputRef.current.click()}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 16px', border: '1px solid #d1d5db',
+                      background: 'white', borderRadius: '6px', cursor: 'pointer',
+                      fontWeight: 500, fontSize: '0.9rem', color: '#374151'
+                    }}
+                  >
+                    <Camera size={16} /> Upload Photo
+                  </button>
+                  <p style={{fontSize: '0.75rem', color: '#9ca3af', marginTop: '5px'}}>Max size 500KB. Square image recommended.</p>
+                </div>
+
+                {/* --- Basic Info Section --- */}
+                <h4 style={{marginBottom: '15px', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '5px'}}>Basic Information</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="name" value={profileData.name} onChange={handleProfileChange} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" value={profileData.email} disabled />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Phone</label>
+                    <input type="tel" name="phone" value={profileData.phone} onChange={handleProfileChange} />
+                  </div>
+                  <div className="form-group">
+                    <label>City / Location</label>
+                    <input type="text" name="address" value={profileData.address} onChange={handleProfileChange} />
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={profileData.email}
-                    onChange={handleProfileChange}
-                    required
-                    disabled
-                  />
+                  <label>Bio (Introduce yourself)</label>
+                  <textarea name="bio" value={profileData.bio} onChange={handleProfileChange} rows="3" placeholder="I am a CS student looking for a quiet place..." />
                 </div>
+
+                {/* --- Roommate Matching Section --- */}
+                <h4 style={{margin: '25px 0 15px', color: '#007bff', borderBottom: '1px solid #eee', paddingBottom: '5px'}}>Roommate Preferences (Required for Matching)</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Age</label>
+                    <input type="number" name="age" value={profileData.age} onChange={handleProfileChange} placeholder="e.g. 21" min="16" />
+                  </div>
+                  <div className="form-group">
+                    <label>Gender</label>
+                    <select name="gender" value={profileData.gender} onChange={handleProfileChange}>
+                      <option value="Prefer not to say">Prefer not to say</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Occupation</label>
+                    <select name="occupation" value={profileData.occupation} onChange={handleProfileChange}>
+                      <option value="Student">Student</option>
+                      <option value="Professional">Professional</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Smoker?</label>
+                    <select name="smoker" value={profileData.smoker} onChange={handleProfileChange}>
+                      <option value="No">No</option>
+                      <option value="Yes">Yes</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Sleep Schedule</label>
+                    <select name="sleepSchedule" value={profileData.sleepSchedule} onChange={handleProfileChange}>
+                      <option value="Flexible">Flexible</option>
+                      <option value="Early Bird">Early Bird (Before 11PM)</option>
+                      <option value="Night Owl">Night Owl (After 12AM)</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Cleanliness</label>
+                    <select name="cleanliness" value={profileData.cleanliness} onChange={handleProfileChange}>
+                      <option value="Average">Average</option>
+                      <option value="Neat Freak">Neat Freak</option>
+                      <option value="Messy">Messy</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label>Phone</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={profileData.phone}
-                    onChange={handleProfileChange}
-                  />
+                  <label style={{display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: 'bold'}}>
+                    <input 
+                      type="checkbox" 
+                      name="lookingForRoommate" 
+                      checked={profileData.lookingForRoommate} 
+                      onChange={handleProfileChange}
+                      style={{width: '20px', height: '20px'}}
+                    />
+                    I am actively looking for a roommate
+                  </label>
+                  <p style={{fontSize: '0.85rem', color: '#666', marginTop: '5px'}}>
+                    Checking this makes your profile visible to others in the "Find Roommate" section.
+                  </p>
                 </div>
-                <div className="form-group">
-                  <label>Address</label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={profileData.address}
-                    onChange={handleProfileChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Bio</label>
-                  <textarea
-                    name="bio"
-                    value={profileData.bio}
-                    onChange={handleProfileChange}
-                    rows="4"
-                    placeholder="Tell us about yourself..."
-                  />
-                </div>
-                <button type="submit" className="submit-button">
-                  Save Changes
-                </button>
+
+                <button type="submit" className="submit-button">Save Profile</button>
               </form>
             ) : (
+              // --- VIEW MODE ---
               <div className="profile-display-card">
                 <div className="profile-header-section">
                   <div className="profile-avatar">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
+                    {profileData.photoURL ? (
+                      <img src={profileData.photoURL} alt="Profile" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+                    ) : (
+                      (profileData.name || 'U').charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="profile-header-info">
                     <h3 className="profile-name">{profileData.name || 'User Name'}</h3>
                     <p className="profile-member-since">Member since {getMemberSince()}</p>
+                    {profileData.lookingForRoommate && (
+                      <span style={{background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '5px', display: 'inline-block'}}>
+                        Looking for Roommate
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="profile-details-grid">
-                  <div className="profile-detail-item">
-                    <div className="detail-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Email</p><p className="detail-value">{profileData.email}</p></div></div>
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Phone</p><p className="detail-value">{profileData.phone || '-'}</p></div></div>
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Location</p><p className="detail-value">{profileData.address || '-'}</p></div></div>
+                  
+                  {/* Matching Details Display */}
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Occupation</p><p className="detail-value">{profileData.occupation}</p></div></div>
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Age</p><p className="detail-value">{profileData.age || '-'}</p></div></div>
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Gender</p><p className="detail-value">{profileData.gender}</p></div></div>
+                  
+                  <div className="profile-detail-item"><div className="detail-content"><p className="detail-label">Lifestyle</p>
+                    <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '5px'}}>
+                      <span style={{background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{profileData.smoker === 'Yes' ? 'Smoker' : 'Non-Smoker'}</span>
+                      <span style={{background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{profileData.sleepSchedule}</span>
+                      <span style={{background: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{profileData.cleanliness}</span>
                     </div>
-                    <div className="detail-content">
-                      <p className="detail-label">Full Name</p>
-                      <p className="detail-value">{profileData.name || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="profile-detail-item">
-                    <div className="detail-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                    <div className="detail-content">
-                      <p className="detail-label">Email Address</p>
-                      <p className="detail-value">{profileData.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="profile-detail-item">
-                    <div className="detail-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                    <div className="detail-content">
-                      <p className="detail-label">Phone Number</p>
-                      <p className="detail-value">{profileData.phone || 'Not set'}</p>
-                    </div>
-                  </div>
-
-                  <div className="profile-detail-item">
-                    <div className="detail-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" strokeWidth="2"/>
-                        <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2"/>
-                      </svg>
-                    </div>
-                    <div className="detail-content">
-                      <p className="detail-label">Location</p>
-                      <p className="detail-value">{profileData.address || 'Not set'}</p>
-                    </div>
-                  </div>
+                  </div></div>
                 </div>
+                
+                {profileData.bio && (
+                  <div style={{padding: '24px 32px', borderTop: '1px solid #f0f0f0'}}>
+                    <p style={{fontWeight: 'bold', marginBottom: '8px', color: '#666'}}>Bio</p>
+                    <p style={{fontStyle: 'italic'}}>{profileData.bio}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Booking History Tab */}
+        {/* Other Tabs */}
         {activeTab === 'bookings' && (
           <div className="bookings-section">
-            <h3 className="section-title">Booking History</h3>
+            <div className="section-header-row">
+               <div>
+                  <h3 className="section-title">My Bookings</h3>
+                  <p className="section-subtitle">Manage your hostel reservations</p>
+               </div>
+               <div className="badge-pill">
+                  {bookings.length} Total Bookings
+               </div>
+            </div>
+
             {bookings.length > 0 ? (
-              <div className="bookings-list">
+              <div className="bookings-list-modern">
                 {bookings.map((booking) => (
-                  <div key={booking.id} className="booking-card">
-                    <div className="booking-info">
-                      <h4 className="booking-hostel-name">{booking.hostelName}</h4>
-                      <div className="booking-details">
-                        <div className="booking-dates">
-                          <span>Check-in: {booking.checkIn}</span>
-                          <span>Check-out: {booking.checkOut}</span>
-                        </div>
-                        <div className="booking-meta">
-                          <span>Guests: {booking.guests || 1}</span>
-                          <span>Booked on: {booking.bookingDate}</span>
-                        </div>
-                      </div>
-                      <div className="booking-footer">
-                        <span className={`booking-status ${booking.status}`}>
-                          {booking.status}
-                        </span>
-                        <span className="booking-price">${booking.price}</span>
-                      </div>
+                   <div key={booking.id} className="booking-card-modern">
+                    {/* Image Side */}
+                    <div className="booking-card-img-container">
+                      <img src={booking.hostelImage || 'https://via.placeholder.com/300'} alt={booking.hostelName} className="booking-card-img" />
                     </div>
-                    <div className="booking-actions">
-                      <button
-                        onClick={() => handleViewHostel(booking.hostelId)}
-                        className="view-button"
-                      >
-                        View Hostel
-                      </button>
-                      {booking.status !== 'cancelled' && (
-                        <button
-                          onClick={() => handleCancelBooking(booking.id)}
-                          className="cancel-button"
-                        >
-                          Cancel
-                        </button>
-                      )}
+
+                    {/* Details Side */}
+                    <div className="booking-card-content">
+                      
+                      {/* Top Header */}
+                      <div className="booking-content-header">
+                         <h4 className="booking-hostel-title">{booking.hostelName}</h4>
+                         <span className={`status-badge ${booking.status}`}>{booking.status}</span>
+                      </div>
+
+                      {/* Location and ID */}
+                      <div className="booking-sub-details">
+                         <p className="booking-location"><MapPin size={14} /> {booking.location || 'Location not available'}</p>
+                         <p className="booking-id">Booking ID: {booking.id.substring(0,6).toUpperCase()}</p>
+                      </div>
+
+                      {/* Timeline Grid */}
+                      <div className="booking-timeline">
+                         <div className="timeline-box">
+                            <span className="label">Check-in</span>
+                            <div className="value-row">
+                               <Calendar size={16} /> {formatBookingDate(booking.checkIn)}
+                            </div>
+                         </div>
+                         <div className="timeline-box">
+                            <span className="label">Check-out</span>
+                            <div className="value-row">
+                               <Calendar size={16} /> {formatBookingDate(booking.checkOut)}
+                            </div>
+                         </div>
+                         <div className="timeline-box">
+                            <span className="label">Duration</span>
+                            <div className="value-row">
+                               <Clock size={16} /> {getNights(booking.checkIn, booking.checkOut)} nights
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Footer (Price & Actions) */}
+                      <div className="booking-content-footer">
+                         <div className="price-block">
+                            <span className="label">Total:</span>
+                            <span className="amount">${booking.price}</span>
+                         </div>
+                         <div className="action-buttons">
+                            <button className="btn-extend" onClick={() => navigate(`/hostel/${booking.hostelId}`)}>
+                               <Plus size={16} /> Extend Stay
+                            </button>
+                            {booking.status !== 'cancelled' && (
+                              <button 
+                                className="btn-cancel"
+                                onClick={() => handleCancelBooking(booking.id)}
+                              >
+                                 <X size={16} /> Cancel
+                              </button>
+                            )}
+                         </div>
+                      </div>
+
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="empty-state">
-                <p>No bookings yet. Start exploring hostels!</p>
-              </div>
+              <div className="empty-state"><p>No bookings yet.</p></div>
             )}
           </div>
         )}
 
-        {/* Make Booking Tab */}
         {activeTab === 'new-booking' && (
           <div className="new-booking-section">
-            <h3 className="section-title">Make a New Booking</h3>
+             <h3 className="section-title">Make a New Booking</h3>
             <form onSubmit={handleMakeBooking} className="booking-form">
               <div className="form-group">
                 <label>Select Hostel</label>
-                <select
-                  name="hostelId"
-                  value={bookingForm.hostelId}
-                  onChange={handleBookingFormChange}
-                  required
-                >
+                <select name="hostelId" value={bookingForm.hostelId} onChange={handleBookingFormChange} required>
                   <option value="">Choose a hostel...</option>
                   {availableHostels.map((hostel) => (
-                    <option key={hostel.id} value={hostel.id}>
-                      {hostel.name} - ${hostel.price}/night ({hostel.location})
-                    </option>
+                    <option key={hostel.id} value={hostel.id}>{hostel.name} - ${hostel.price}/night</option>
                   ))}
                 </select>
               </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label>Check-in Date</label>
-                  <input
-                    type="date"
-                    name="checkIn"
-                    value={bookingForm.checkIn}
-                    onChange={handleBookingFormChange}
-                    required
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Check-out Date</label>
-                  <input
-                    type="date"
-                    name="checkOut"
-                    value={bookingForm.checkOut}
-                    onChange={handleBookingFormChange}
-                    required
-                    min={bookingForm.checkIn || new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Number of Guests</label>
-                  <input
-                    type="number"
-                    name="guests"
-                    value={bookingForm.guests}
-                    onChange={handleBookingFormChange}
-                    required
-                    min="1"
-                    max="10"
-                  />
-                </div>
+                <div className="form-group"><label>Check-in Date</label><input type="date" name="checkIn" value={bookingForm.checkIn} onChange={handleBookingFormChange} required min={new Date().toISOString().split('T')[0]}/></div>
+                <div className="form-group"><label>Check-out Date</label><input type="date" name="checkOut" value={bookingForm.checkOut} onChange={handleBookingFormChange} required min={bookingForm.checkIn}/></div>
               </div>
+              <div className="form-group"><label>Guests</label><input type="number" name="guests" value={bookingForm.guests} onChange={handleBookingFormChange} required min="1" max="10"/></div>
+              
+              {/* --- BOOKING SUMMARY SECTION --- */}
               {bookingForm.hostelId && bookingForm.checkIn && bookingForm.checkOut && (
                 <div className="booking-summary">
                   {(() => {
                     const selectedHostel = availableHostels.find(h => h.id === bookingForm.hostelId)
-                    const nights = Math.ceil((new Date(bookingForm.checkOut) - new Date(bookingForm.checkIn)) / (1000 * 60 * 60 * 24))
-                    const totalPrice = selectedHostel ? selectedHostel.price * nights * bookingForm.guests : 0
+                    const nights = getNights(bookingForm.checkIn, bookingForm.checkOut)
+                    const totalPrice = calculateBookingPrice(selectedHostel?.price, nights, bookingForm.guests)
                     return (
                       <div className="summary-card">
                         <h4>Booking Summary</h4>
@@ -588,17 +703,27 @@ function UserDashboard() {
                   })()}
                 </div>
               )}
-              <button type="submit" className="submit-button">
-                Submit Booking Request
-              </button>
+              
+              <button type="submit" className="submit-button">Submit Booking Request</button>
             </form>
           </div>
         )}
 
-        {/* Compare Hostels Tab */}
         {activeTab === 'compare' && (
           <div className="compare-section">
             <CompareHostels />
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="notifications-section">
+            <Notifications />
+          </div>
+        )}
+
+        {activeTab === 'wishlist' && (
+          <div className="wishlist-section">
+            <Wishlist />
           </div>
         )}
       </div>

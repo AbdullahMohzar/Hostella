@@ -1,0 +1,248 @@
+.notifications-container {
+  font-family: 'Inter', system-ui, sans-serif;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 0;
+}
+
+/* --- Header --- */
+.notif-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.notif-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.notif-subtitle {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-outline {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-outline:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* --- Filters --- */
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.pill-tab {
+  padding: 8px 16px;
+  border-radius: 20px; /* Pill shape */
+  border: none;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pill-tab:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.pill-tab.active {
+  background: #111827; /* Dark active state like image */
+  color: white;
+}
+
+/* --- Notification Cards --- */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notif-card {
+  display: flex;
+  gap: 20px;
+  background: white;
+  border: 1px solid #f3f4f6;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02); /* Subtle shadow */
+  transition: box-shadow 0.2s;
+}
+
+.notif-card:hover {
+  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+}
+
+/* Icon Styles */
+.notif-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Colors matching the image */
+.bg-green-100 { background-color: #dcfce7; }
+.text-green-600 { color: #16a34a; }
+
+.bg-purple-100 { background-color: #f3e8ff; }
+.text-purple-600 { color: #9333ea; }
+
+.bg-blue-100 { background-color: #dbeafe; }
+.text-blue-600 { color: #2563eb; }
+
+/* Content Layout */
+.notif-content {
+  flex: 1;
+}
+
+.notif-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.notif-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.notif-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.icon-btn:hover { color: #4b5563; }
+.icon-btn.delete:hover { color: #ef4444; }
+
+.notif-message {
+  color: #4b5563;
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.notif-meta {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+/* Footer (Date & Button) */
+.notif-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.notif-date {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.action-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Empty State */
+.empty-notif {
+  text-align: center;
+  padding: 60px;
+  background: #f9fafb;
+  border-radius: 16px;
+  color: #9ca3af;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  .notif-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .header-actions {
+    width: 100%;
+  }
+  
+  .btn-outline {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .notif-card {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .notif-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .action-btn {
+    width: 100%;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../components/ThemeContext'
 import {
@@ -14,11 +14,14 @@ import {
   setDoc
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { Camera, MapPin, Star, Edit2, Trash2 } from 'lucide-react'
 import './OwnerDashboard.css'
 
 function OwnerDashboard() {
   const { currentUser } = useAuth()
   const { theme } = useTheme()
+  const fileInputRef = useRef(null)
+  
   const [activeTab, setActiveTab] = useState('hostels')
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingHostel, setEditingHostel] = useState(null)
@@ -46,20 +49,10 @@ function OwnerDashboard() {
     checkInTime: '14:00',
     checkOutTime: '11:00',
     amenities: {
-      wifi: false,
-      kitchen: false,
-      laundry: false,
-      parking: false,
-      breakfast: false,
-      airConditioning: false,
-      heating: false,
-      pool: false,
-      gym: false,
-      lockers: false,
-      commonRoom: false,
-      bbq: false,
-      security: false,
-      reception24h: false
+      wifi: false, kitchen: false, laundry: false, parking: false,
+      breakfast: false, airConditioning: false, heating: false, pool: false,
+      gym: false, lockers: false, commonRoom: false, bbq: false,
+      security: false, reception24h: false
     }
   })
 
@@ -67,7 +60,7 @@ function OwnerDashboard() {
   const [users, setUsers] = useState([])
   const [allBookings, setAllBookings] = useState([])
 
-  // Load Owner Profile
+  // 1. Load Owner Profile
   useEffect(() => {
     const loadOwnerProfile = async () => {
       if (!currentUser) return
@@ -98,7 +91,7 @@ function OwnerDashboard() {
     loadOwnerProfile()
   }, [currentUser])
 
-  // Load Hostels
+  // 2. Load Hostels
   useEffect(() => {
     const loadHostels = async () => {
       if (!currentUser) return
@@ -122,50 +115,60 @@ function OwnerDashboard() {
     loadHostels()
   }, [currentUser])
 
-  // Load Bookings
+  // 3. Load Bookings
   useEffect(() => {
     const loadBookings = async () => {
-      if (!currentUser || hostels.length === 0) return
+      if (!currentUser) return;
       try {
-        const bookingsQuery = query(collection(db, 'bookings'))
+        const bookingsQuery = query(
+          collection(db, 'bookings'),
+          where('ownerId', '==', currentUser.uid)
+        );
+        
         const querySnapshot = await getDocs(bookingsQuery)
         const bookingsData = []
-        const ownerHostelIds = hostels.map(h => h.id)
-
         querySnapshot.forEach((doc) => {
-          const booking = { id: doc.id, ...doc.data() }
-          if (ownerHostelIds.includes(booking.hostelId)) {
-            bookingsData.push(booking)
-          }
+          bookingsData.push({ id: doc.id, ...doc.data() });
         })
-        setAllBookings(bookingsData.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate)))
+        
+        setAllBookings(bookingsData.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+            return dateB - dateA;
+        }))
+
       } catch (error) {
         console.error('Error loading bookings:', error)
       }
     }
     loadBookings()
-  }, [hostels, currentUser])
+  }, [currentUser])
 
-  // Load Users
+  // 4. Load Users
   useEffect(() => {
     const loadUsers = async () => {
+      if (!currentUser) return;
       try {
-        const usersQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'user')
-        )
-        const querySnapshot = await getDocs(usersQuery)
-        const usersData = []
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef);
+        const querySnapshot = await getDocs(q);
+        
+        const usersData = [];
         querySnapshot.forEach((doc) => {
-          usersData.push({ id: doc.id, ...doc.data() })
-        })
-        setUsers(usersData)
+          if (doc.id !== currentUser.uid) {
+             usersData.push({ id: doc.id, ...doc.data() })
+          }
+        });
+        
+        setUsers(usersData);
       } catch (error) {
-        console.error('Error loading users:', error)
+        console.error('Error loading users:', error);
       }
     }
     loadUsers()
-  }, [])
+  }, [currentUser])
+
+  // --- HANDLERS ---
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -186,6 +189,23 @@ function OwnerDashboard() {
     }
   }
 
+  // Photo Upload Handler - Updates State IMMEDIATELY
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 500 * 1024) {
+        alert("Image size too large! Please select an image under 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // This updates the state, which should refresh BOTH the header and the preview
+        setOwnerProfile(prev => ({ ...prev, photoURL: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -200,20 +220,10 @@ function OwnerDashboard() {
       checkInTime: '14:00',
       checkOutTime: '11:00',
       amenities: {
-        wifi: false,
-        kitchen: false,
-        laundry: false,
-        parking: false,
-        breakfast: false,
-        airConditioning: false,
-        heating: false,
-        pool: false,
-        gym: false,
-        lockers: false,
-        commonRoom: false,
-        bbq: false,
-        security: false,
-        reception24h: false
+        wifi: false, kitchen: false, laundry: false, parking: false,
+        breakfast: false, airConditioning: false, heating: false, pool: false,
+        gym: false, lockers: false, commonRoom: false, bbq: false,
+        security: false, reception24h: false
       }
     })
   }
@@ -269,7 +279,6 @@ function OwnerDashboard() {
 
   const handleEditHostel = (hostel) => {
     setEditingHostel(hostel)
-
     const amenitiesObj = {
       wifi: false, kitchen: false, laundry: false, parking: false, breakfast: false,
       airConditioning: false, heating: false, pool: false, gym: false, lockers: false,
@@ -401,8 +410,11 @@ function OwnerDashboard() {
     }
   }
 
-  const totalRevenue = hostels.reduce((sum, h) => sum + (h.revenue || 0), 0)
-  const totalBookings = hostels.reduce((sum, h) => sum + (h.bookings || 0), 0)
+  const totalRevenue = allBookings
+    .filter(b => b.status === 'confirmed')
+    .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    
+  const totalBookings = allBookings.length
   const totalUsers = users.length
   const activeUsers = users.filter(u => u.status === 'active').length
 
@@ -453,15 +465,9 @@ function OwnerDashboard() {
               <h3 className="section-title">My Hostels</h3>
               <button
                 onClick={() => {
-                  if (showAddForm) {
-                    setEditingHostel(null)
-                    resetForm()
-                    setShowAddForm(false)
-                  } else {
-                    setEditingHostel(null)
-                    resetForm()
-                    setShowAddForm(true)
-                  }
+                  setEditingHostel(null)
+                  resetForm()
+                  setShowAddForm(!showAddForm)
                 }}
                 className="add-button"
               >
@@ -474,108 +480,20 @@ function OwnerDashboard() {
                 <h4 style={{marginBottom: '20px', fontSize: '1.25rem', fontWeight: 600}}>
                   {editingHostel ? 'Edit Hostel' : 'Add New Hostel'}
                 </h4>
-
+                
+                {/* Form fields remain same */}
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Hostel Name *</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleInputChange} required placeholder="e.g., Sunset Backpackers" />
-                  </div>
-                  <div className="form-group">
-                    <label>Location *</label>
-                    <input type="text" name="location" value={formData.location} onChange={handleInputChange} required placeholder="e.g., Bali, Indonesia" />
-                  </div>
+                  <div className="form-group"><label>Hostel Name</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Location</label><input type="text" name="location" value={formData.location} onChange={handleInputChange} required /></div>
                 </div>
-
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Price per Night ($) *</label>
-                    <input type="number" name="price" value={formData.price} onChange={handleInputChange} required min="1" step="0.01" placeholder="25" />
-                  </div>
-                  <div className="form-group">
-                    <label>Capacity (Beds) *</label>
-                    <input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required min="1" placeholder="40" />
-                  </div>
-                  <div className="form-group">
-                    <label>WiFi Speed (Mbps)</label>
-                    <input type="text" name="wifiSpeed" value={formData.wifiSpeed} onChange={handleInputChange} placeholder="50" />
-                  </div>
+                  <div className="form-group"><label>Price ($)</label><input type="number" name="price" value={formData.price} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Capacity</label><input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required /></div>
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Rating (0-5)</label>
-                    <input type="number" name="rating" value={formData.rating} onChange={handleInputChange} min="0" max="5" step="0.1" />
-                  </div>
-                  <div className="form-group">
-                    <label>Number of Reviews</label>
-                    <input type="number" name="reviews" value={formData.reviews} onChange={handleInputChange} min="0" />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Check-in Time</label>
-                    <input type="time" name="checkInTime" value={formData.checkInTime} onChange={handleInputChange} />
-                  </div>
-                  <div className="form-group">
-                    <label>Check-out Time</label>
-                    <input type="time" name="checkOutTime" value={formData.checkOutTime} onChange={handleInputChange} />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Image URL</label>
-                  <input type="url" name="image" value={formData.image} onChange={handleInputChange} placeholder="https://images.unsplash.com/photo-..." />
-                </div>
-
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea name="description" value={formData.description} onChange={handleInputChange} rows="4" placeholder="Describe your hostel..." />
-                </div>
-
-                <div className="form-group" style={{marginTop: '20px'}}>
-                  <label style={{fontSize: '1.1rem', fontWeight: 600, marginBottom: '15px', display: 'block'}}>Amenities & Features</label>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '12px',
-                    background: '#f9fafb',
-                    padding: '20px',
-                    borderRadius: '8px'
-                  }}>
-                    {[
-                      { key: 'wifi', label: 'WiFi' },
-                      { key: 'kitchen', label: 'Kitchen' },
-                      { key: 'laundry', label: 'Laundry' },
-                      { key: 'parking', label: 'Parking' },
-                      { key: 'breakfast', label: 'Breakfast' },
-                      { key: 'airConditioning', label: 'Air Conditioning' },
-                      { key: 'heating', label: 'Heating' },
-                      { key: 'pool', label: 'Pool' },
-                      { key: 'gym', label: 'Gym' },
-                      { key: 'lockers', label: 'Lockers' },
-                      { key: 'commonRoom', label: 'Common Room' },
-                      { key: 'bbq', label: 'BBQ Area' },
-                      { key: 'security', label: 'Security' },
-                      { key: 'reception24h', label: '24/7 Reception' }
-                    ].map(item => (
-                      <label key={item.key} style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
-                        <input
-                          type="checkbox"
-                          name={`amenity_${item.key}`}
-                          checked={formData.amenities[item.key]}
-                          onChange={handleInputChange}
-                          style={{width: '18px', height: '18px'}}
-                        />
-                        <span>{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <button type="submit" className="submit-button" style={{marginTop: '20px'}}>
-                  {editingHostel ? 'Update Hostel' : 'Add Hostel'}
-                </button>
+                <div className="form-group"><label>Image URL</label><input type="url" name="image" value={formData.image} onChange={handleInputChange} /></div>
+                <div className="form-group"><label>Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} /></div>
+                
+                <button type="submit" className="submit-button">{editingHostel ? 'Update Hostel' : 'Add Hostel'}</button>
               </form>
             )}
 
@@ -583,37 +501,47 @@ function OwnerDashboard() {
               {hostels.length > 0 ? (
                 hostels.map(hostel => (
                   <div key={hostel.id} className="hostel-card">
-                    {hostel.image && (
-                      <img src={hostel.image} alt={hostel.name} style={{width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px 8px 0 0', marginBottom: '15px'}} />
-                    )}
+                    <img 
+                      src={hostel.image || 'https://via.placeholder.com/150'} 
+                      alt={hostel.name} 
+                      className="hostel-card-img" 
+                    />
+                    
                     <div className="hostel-info">
-                      <h4 className="hostel-name">{hostel.name}</h4>
-                      <p className="hostel-location">Location: {hostel.location}</p>
-                      <p className="hostel-description">{hostel.description}</p>
-                      {hostel.amenities?.length > 0 && (
-                        <div style={{margin: '10px 0'}}>
-                          <strong style={{fontSize: '0.9rem', color: '#6b7280'}}>Amenities:</strong>
-                          <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px'}}>
-                            {hostel.amenities.slice(0, 5).map((a, i) => (
-                              <span key={i} style={{background: '#e5e7eb', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem'}}>{a}</span>
-                            ))}
-                            {hostel.amenities.length > 5 && <span style={{fontSize: '0.8rem', color: '#6b7280'}}>+{hostel.amenities.length - 5} more</span>}
-                          </div>
+                      <div className="hostel-header-row">
+                        <div>
+                          <h3 className="hostel-name">{hostel.name}</h3>
+                          <p className="hostel-location">
+                             <MapPin size={14} style={{marginRight: '4px'}}/> {hostel.location}
+                          </p>
                         </div>
-                      )}
-                      <div className="hostel-stats">
-                        <span>Price: ${hostel.price}/night</span>
-                        <span>Beds: {hostel.capacity}</span>
-                        <span>Rating: {hostel.rating} ({hostel.reviews} reviews)</span>
+                        
+                        <div className="hostel-actions">
+                          <button onClick={() => handleEditHostel(hostel)} className="icon-btn edit" title="Edit">
+                            <Edit2 size={18} />
+                          </button>
+                          <button onClick={() => handleDeleteHostel(hostel.id)} className="icon-btn delete" title="Delete">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="hostel-stats">
-                        <span>Bookings: {hostel.bookings || 0}</span>
-                        <span>Revenue: ${hostel.revenue || 0}</span>
+
+                      <div className="hostel-details-grid">
+                        <p><span className="detail-label">Price:</span> <span className="detail-value">${hostel.price} per night</span></p>
+                        <p><span className="detail-label">Beds:</span> <span className="detail-value">{hostel.capacity}</span></p>
+                        <p><span className="detail-label">Rating:</span> <span className="detail-value">
+                            <Star size={12} fill="#f59e0b" color="#f59e0b" style={{marginRight: '4px'}} />
+                            {hostel.rating} ({hostel.reviews || 0} reviews)
+                        </span></p>
+                        <p><span className="detail-label">Bookings:</span> <span className="detail-value">{hostel.bookings || 0}</span></p>
+                        <p><span className="detail-label">Revenue:</span> <span className="detail-value">${hostel.revenue || 0}</span></p>
+                        
+                        <p style={{gridColumn: '1 / -1'}}>
+                           <span className="detail-label">Amenities:</span> 
+                           <span className="detail-value"> {hostel.amenities?.slice(0, 4).join(', ') || 'None'}</span>
+                        </p>
+                        <p><span className="detail-label">WiFi:</span> <span className="detail-value">{hostel.wifiSpeed} Mbps</span></p>
                       </div>
-                    </div>
-                    <div className="hostel-actions">
-                      <button onClick={() => handleEditHostel(hostel)} className="edit-button">Edit</button>
-                      <button onClick={() => handleDeleteHostel(hostel.id)} className="delete-button">Delete</button>
                     </div>
                   </div>
                 ))
@@ -621,7 +549,6 @@ function OwnerDashboard() {
                 <div className="empty-state">
                   <div className="empty-state-icon">House</div>
                   <h3>No Hostels Added</h3>
-                  <p>Start by adding your first hostel listing</p>
                   <button onClick={() => setShowAddForm(true)} className="empty-state-button">Add Your First Hostel</button>
                 </div>
               )}
@@ -638,12 +565,10 @@ function OwnerDashboard() {
                 <table className="bookings-table">
                   <thead>
                     <tr>
-                      <th>User</th>
                       <th>Email</th>
                       <th>Hostel</th>
                       <th>Check-in</th>
                       <th>Check-out</th>
-                      <th>Guests</th>
                       <th>Price</th>
                       <th>Status</th>
                       <th>Actions</th>
@@ -652,32 +577,32 @@ function OwnerDashboard() {
                   <tbody>
                     {allBookings.map(booking => (
                       <tr key={booking.id}>
-                        <td>{booking.userName || 'N/A'}</td>
                         <td>{booking.userEmail || 'N/A'}</td>
                         <td>{booking.hostelName}</td>
                         <td>{booking.checkIn}</td>
                         <td>{booking.checkOut}</td>
-                        <td>{booking.guests || 1}</td>
-                        <td>${booking.price}</td>
+                        <td>${booking.totalPrice}</td>
                         <td>
                           <select value={booking.status} onChange={(e) => handleBookingStatusChange(booking.id, e.target.value)} className={`status-select ${booking.status}`}>
                             <option value="pending">Pending</option>
                             <option value="confirmed">Confirmed</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
+                          {booking.status === 'pending' && (
+                            <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                              <button onClick={() => handleBookingStatusChange(booking.id, 'confirmed')} className="action-button accept">Accept</button>
+                              <button onClick={() => handleBookingStatusChange(booking.id, 'cancelled')} className="action-button decline">Decline</button>
+                            </div>
+                          )}
                         </td>
-                        <td><button className="view-button">View</button></td>
+                        <td></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="empty-state">
-                <div className="empty-state-icon">Calendar</div>
-                <h3>No Bookings Yet</h3>
-                <p>Bookings will appear here once users start booking your hostels</p>
-              </div>
+              <div className="empty-state"><p>No bookings yet.</p></div>
             )}
           </div>
         )}
@@ -704,7 +629,7 @@ function OwnerDashboard() {
                       <tr key={user.id}>
                         <td>{user.name || user.displayName || 'N/A'}</td>
                         <td>{user.email}</td>
-                        <td>{user.role}</td>
+                        <td>{user.role || 'user'}</td>
                         <td>{user.phone || 'N/A'}</td>
                         <td>
                           <select value={user.status || 'active'} onChange={(e) => handleUserStatusChange(user.id, e.target.value)} className={`status-select ${user.status || 'active'}`}>
@@ -722,13 +647,12 @@ function OwnerDashboard() {
               <div className="empty-state">
                 <div className="empty-state-icon">People</div>
                 <h3>No Users Found</h3>
-                <p>User accounts will appear here</p>
               </div>
             )}
           </div>
         )}
 
-        {/* Profile Tab */}
+        {/* Profile Tab (With Upload) */}
         {activeTab === 'profile' && (
           <div className="profile-section">
             <div className="section-header">
@@ -739,14 +663,17 @@ function OwnerDashboard() {
             </div>
 
             <div className="profile-card">
+              {/* Header shows current state (instantly updated) */}
               <div className="profile-header">
                 <div className="profile-avatar">
                   {ownerProfile.photoURL ? (
-                    <img src={ownerProfile.photoURL} alt="Profile" />
+                    <img 
+                      src={ownerProfile.photoURL} 
+                      alt="Profile" 
+                      style={{width: '100%', height: '100%', objectFit: 'cover'}} 
+                    />
                   ) : (
-                    <div className="avatar-placeholder">
-                      {(ownerProfile.name?.charAt(0) || 'O').toUpperCase()}
-                    </div>
+                    <div className="avatar-placeholder">{(ownerProfile.name?.charAt(0) || 'O').toUpperCase()}</div>
                   )}
                 </div>
                 <div className="profile-info">
@@ -757,25 +684,48 @@ function OwnerDashboard() {
 
               {editingProfile ? (
                 <form onSubmit={handleSaveProfile} className="profile-form">
+                  
+                  {/* --- Profile Picture Upload --- */}
+                  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px'}}>
+                    <div style={{
+                      width: '100px', height: '100px', borderRadius: '50%', overflow: 'hidden', 
+                      background: '#f3f4f6', border: '2px solid #e5e7eb', marginBottom: '15px',
+                      display: 'flex', justifyContent: 'center', alignItems: 'center'
+                    }}>
+                      {ownerProfile.photoURL ? (
+                        <img src={ownerProfile.photoURL} alt="Profile" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                      ) : (
+                        <span style={{fontSize: '2rem', color: '#9ca3af'}}>{(ownerProfile.name || 'O').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      onChange={handlePhotoChange}
+                      accept="image/*"
+                      style={{display: 'none'}}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current.click()}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', border: '1px solid #d1d5db',
+                        background: 'white', borderRadius: '6px', cursor: 'pointer',
+                        fontWeight: 500, fontSize: '0.9rem', color: '#374151'
+                      }}
+                    >
+                      <Camera size={16} /> Upload Photo
+                    </button>
+                    <p style={{fontSize: '0.75rem', color: '#9ca3af', marginTop: '5px'}}>Max size 500KB. Square image recommended.</p>
+                  </div>
+
                   <div className="form-row">
-                    <div className="form-group">
-                      <label>Full Name</label>
-                      <input type="text" value={ownerProfile.name} onChange={(e) => setOwnerProfile({...ownerProfile, name: e.target.value})} required />
-                    </div>
-                    <div className="form-group">
-                      <label>Phone Number</label>
-                      <input type="tel" value={ownerProfile.phone} onChange={(e) => setOwnerProfile({...ownerProfile, phone: e.target.value})} placeholder="+123 456 7890" />
-                    </div>
+                    <div className="form-group"><label>Full Name</label><input type="text" value={ownerProfile.name} onChange={(e) => setOwnerProfile({...ownerProfile, name: e.target.value})} required /></div>
+                    <div className="form-group"><label>Phone Number</label><input type="tel" value={ownerProfile.phone} onChange={(e) => setOwnerProfile({...ownerProfile, phone: e.target.value})} placeholder="+123 456 7890" /></div>
                   </div>
                   <div className="form-row">
-                    <div className="form-group">
-                      <label>Email (cannot be changed)</label>
-                      <input type="email" value={ownerProfile.email} disabled />
-                    </div>
-                    <div className="form-group">
-                      <label>Profile Photo URL</label>
-                      <input type="url" value={ownerProfile.photoURL} onChange={(e) => setOwnerProfile({...ownerProfile, photoURL: e.target.value})} placeholder="https://example.com/photo.jpg" />
-                    </div>
+                    <div className="form-group"><label>Email (cannot be changed)</label><input type="email" value={ownerProfile.email} disabled /></div>
                   </div>
                   <button type="submit" className="submit-button">Save Changes</button>
                 </form>

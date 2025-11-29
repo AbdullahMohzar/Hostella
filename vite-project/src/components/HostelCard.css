@@ -1,114 +1,165 @@
 .hostel-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 8px; /* Slightly less rounded to match image */
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
 }
 
 .hostel-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
+/* --- Image Section --- */
 .hostel-card-image {
-  width: 100%;
   height: 200px;
-  overflow: hidden;
+  width: 100%;
+  position: relative;
+  background-color: #f3f4f6;
 }
 
 .hostel-card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
 }
 
-.hostel-card:hover .hostel-card-image img {
-  transform: scale(1.05);
+/* Wishlist Heart Button */
+.wishlist-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  z-index: 10;
+  color: #666;
 }
 
+.wishlist-btn:hover {
+  transform: scale(1.1);
+}
+
+.wishlist-btn.active {
+  color: #ef4444;
+  border-color: #ef4444;
+  background-color: #fff0f0;
+}
+
+.wishlist-btn.active svg {
+  fill: currentColor;
+}
+
+/* --- Content Section --- */
 .hostel-card-content {
-  padding: 16px;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  text-align: center; /* Key: Centers everything like the image */
 }
 
+/* Header Group (Title + Rating) */
 .hostel-card-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
+  justify-content: center; /* Center align horizontally */
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .hostel-card-name {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
   margin: 0;
-  flex: 1;
+  font-family: "Times New Roman", Times, serif; /* SERIF font matches image */
+  letter-spacing: 0.01em;
 }
 
 .hostel-card-rating {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 0.9rem;
+  color: #374151;
 }
 
 .rating-star {
+  color: #fbbf24; /* Yellow star */
   font-size: 1rem;
+  margin-top: -2px;
 }
 
 .rating-value {
-  font-weight: 600;
-  color: #1a1a1a;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .rating-reviews {
-  color: #666;
+  color: #9ca3af; /* Light gray for review count */
   font-size: 0.85rem;
 }
 
+/* Location */
 .hostel-card-location {
-  color: #666;
+  color: #6b7280;
   font-size: 0.9rem;
-  margin-bottom: 12px;
+  margin-bottom: 24px;
+  font-weight: 400;
 }
 
+/* --- Footer Section (Beds & Price) --- */
 .hostel-card-footer {
+  margin-top: auto;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end; /* Align to bottom baseline */
+  border-top: 1px solid #f3f4f6; /* Subtle divider line */
+  padding-top: 16px;
 }
 
+/* Left Side: "beds" */
 .hostel-card-info {
-  display: flex;
-  gap: 8px;
   font-size: 0.85rem;
-  color: #666;
+  color: #6b7280;
+  font-weight: 500;
 }
 
-.hostel-beds,
-.hostel-roommates {
-  padding: 4px 8px;
-  background-color: #f0f0f0;
-  border-radius: 4px;
-}
-
+/* Right Side: Price */
 .hostel-card-price {
+  text-align: right;
   display: flex;
   align-items: baseline;
   gap: 4px;
 }
 
 .price-amount {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: #007bff;
+  font-size: 1.8rem; /* Big price font */
+  font-weight: 800;
+  color: #111827;
+  font-family: "Times New Roman", Times, serif; /* SERIF font matches image */
+  line-height: 1;
 }
 
 .price-unit {
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 400;
 }
-

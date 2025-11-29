@@ -1,288 +1,296 @@
-import { useState } from "react";
-import { Bell, CheckCircle, Tag, Calendar, AlertCircle, X, Check } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { useState, useEffect } from 'react';
+import { Check, X, Tag, Bell, Calendar } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { db } from '../firebase.js';
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  updateDoc, 
+  doc, 
+  serverTimestamp,
+  writeBatch,
+  getDocs
+} from 'firebase/firestore';
+import './Notifications.css';
 
 export function Notifications() {
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      type: "booking",
-      title: "Booking Confirmed",
-      message: "Your booking at Urban Nest Hostel has been confirmed for Dec 1-7, 2025",
-      timestamp: "2025-11-20T10:30:00",
-      read: false,
-      icon: CheckCircle,
-      iconColor: "text-green-600",
-      bgColor: "bg-green-50"
-    },
-    {
-      id: "2",
-      type: "discount",
-      title: "Flash Sale: 30% Off",
-      message: "Limited time offer! Get 30% off on Nomad's Haven in Barcelona. Book before Nov 30!",
-      timestamp: "2025-11-21T14:15:00",
-      read: false,
-      icon: Tag,
-      iconColor: "text-purple-600",
-      bgColor: "bg-purple-50",
-      discount: "30%",
-      hostel: "Nomad's Haven"
-    },
-    {
-      id: "3",
-      type: "discount",
-      title: "Weekend Special",
-      message: "Save 20% on weekend stays at Tropical Vibes Hostel in Bali",
-      timestamp: "2025-11-22T09:00:00",
-      read: false,
-      icon: Tag,
-      iconColor: "text-orange-600",
-      bgColor: "bg-orange-50",
-      discount: "20%",
-      hostel: "Tropical Vibes Hostel"
-    },
-    {
-      id: "4",
-      type: "reminder",
-      title: "Upcoming Check-in",
-      message: "Reminder: Your check-in at Sunset Beach Hostel is in 3 days (Dec 15, 2025)",
-      timestamp: "2025-11-23T08:00:00",
-      read: true,
-      icon: Calendar,
-      iconColor: "text-blue-600",
-      bgColor: "bg-blue-50"
-    },
-    {
-      id: "5",
-      type: "booking",
-      title: "Booking Pending",
-      message: "Your booking request for Sunset Beach Hostel is awaiting confirmation",
-      timestamp: "2025-11-18T16:45:00",
-      read: true,
-      icon: AlertCircle,
-      iconColor: "text-yellow-600",
-      bgColor: "bg-yellow-50"
-    },
-    {
-      id: "6",
-      type: "discount",
-      title: "Early Bird Discount",
-      message: "Book 2 months in advance and save 25% at The Modern Traveler",
-      timestamp: "2025-11-19T11:30:00",
-      read: true,
-      icon: Tag,
-      iconColor: "text-pink-600",
-      bgColor: "bg-pink-50",
-      discount: "25%",
-      hostel: "The Modern Traveler"
-    },
-    {
-      id: "7",
-      type: "discount",
-      title: "Black Friday Sale",
-      message: "Exclusive 40% off on all hostels in Europe! Offer ends tonight.",
-      timestamp: "2025-11-24T07:00:00",
-      read: false,
-      icon: Tag,
-      iconColor: "text-red-600",
-      bgColor: "bg-red-50",
-      discount: "40%"
+  const { currentUser } = useAuth();
+  const [filter, setFilter] = useState('All');
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- 1. REAL-TIME LISTENER: Fetch Notifications ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const q = query(
+      collection(db, 'notifications'), 
+      where('userId', '==', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort by date (newest first) locally since serverTimestamp can be null initially
+      items.sort((a, b) => {
+         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
+         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date();
+         return dateB - dateA;
+      });
+
+      setNotifications(items);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+
+  // --- 2. BOOKING SYNC: Generate Notification when Booking is made ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Listen to Bookings to auto-generate notifications
+    const qBookings = query(
+      collection(db, 'bookings'),
+      where('userId', '==', currentUser.uid)
+    );
+
+    const unsubscribeBookings = onSnapshot(qBookings, async (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added') {
+          const booking = change.doc.data();
+          const bookingId = change.doc.id;
+
+          // Check if we already notified about this booking to avoid duplicates
+          // We assume we store 'relatedId' in the notification
+          const qCheck = query(
+            collection(db, 'notifications'),
+            where('relatedId', '==', bookingId)
+          );
+          const checkSnap = await getDocs(qCheck);
+
+          if (checkSnap.empty) {
+            // Generate "Booking Confirmed" Notification
+            await addDoc(collection(db, 'notifications'), {
+               userId: currentUser.uid,
+               type: 'booking',
+               title: 'Booking Confirmed',
+               message: `Your stay at ${booking.hostelName} is confirmed for ${booking.checkIn}.`,
+               date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+               read: false,
+               action: 'View Booking',
+               relatedId: bookingId, // Link to booking
+               createdAt: serverTimestamp()
+            });
+            console.log("🔔 Notification generated for booking:", bookingId);
+          }
+        }
+      });
+    });
+
+    return () => unsubscribeBookings();
+  }, [currentUser]);
+
+
+  // --- 3. RANDOM OFFER GENERATOR (Simulated) ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Run a check every 60 seconds to maybe add an offer
+    const interval = setInterval(async () => {
+      const randomChance = Math.random();
+      
+      // 30% chance to get an offer, and ensure we don't spam (limit to 3 unread discounts)
+      const discountCount = notifications.filter(n => n.type === 'discount' && !n.read).length;
+      
+      if (randomChance > 0.7 && discountCount < 3) {
+        const offers = [
+          { title: "Flash Sale: 20% Off!", msg: "Weekend special at Margalla View! Book now." },
+          { title: "Free Breakfast Upgrade", msg: "Book your next stay in G-12 and get free breakfast." },
+          { title: "Partner Discount", msg: "Get 10% off hiking gear with your next booking." }
+        ];
+        const randomOffer = offers[Math.floor(Math.random() * offers.length)];
+
+        await addDoc(collection(db, 'notifications'), {
+           userId: currentUser.uid,
+           type: 'discount',
+           title: randomOffer.title,
+           message: randomOffer.msg,
+           date: 'Just now',
+           read: false,
+           action: 'View Offer',
+           createdAt: serverTimestamp()
+        });
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [currentUser, notifications]);
+
+
+  // --- Actions ---
+
+  const handleMarkRead = async (id) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (error) {
+      console.error("Error marking read:", error);
     }
-  ]);
-
-  const [filter, setFilter] = useState("all");
-
-  const handleMarkAsRead = (notificationId) => {
-    setNotifications(notifications.map(n => 
-      n.id === notificationId ? { ...n, read: true } : n
-    ));
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'notifications', id));
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
   };
 
-  const handleDelete = (notificationId) => {
-    setNotifications(notifications.filter(n => n.id !== notificationId));
+  const handleMarkAllRead = async () => {
+    const batch = writeBatch(db);
+    notifications.forEach(n => {
+       if (!n.read) {
+         const ref = doc(db, 'notifications', n.id);
+         batch.update(ref, { read: true });
+       }
+    });
+    await batch.commit();
   };
 
-  const handleClearAll = () => {
-    setNotifications([]);
+  const handleClearAll = async () => {
+    if(window.confirm("Clear all notifications?")) {
+      const batch = writeBatch(db);
+      notifications.forEach(n => {
+         const ref = doc(db, 'notifications', n.id);
+         batch.delete(ref);
+      });
+      await batch.commit();
+    }
   };
 
-  const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
+  // --- Filtering Logic ---
   const filteredNotifications = notifications.filter(n => {
-    if (filter === "all") return true;
-    if (filter === "unread") return !n.read;
-    return n.type === filter;
+    if (filter === 'All') return true;
+    if (filter === 'Unread') return !n.read;
+    if (filter === 'Bookings') return n.type === 'booking';
+    if (filter === 'Discounts') return n.type === 'discount';
+    if (filter === 'Reminders') return n.type === 'reminder';
+    return true;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const discountCount = notifications.filter(n => n.type === "discount" && !n.read).length;
+  const discountCount = notifications.filter(n => n.type === 'discount').length;
+
+  if (loading) return <div className="p-10 text-center text-gray-500">Loading updates...</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="notifications-container">
+      
+      {/* Header Section */}
+      <div className="notif-header-row">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h2>Notifications</h2>
-            {unreadCount > 0 && (
-              <Badge className="bg-red-500 text-white">{unreadCount} New</Badge>
-            )}
-          </div>
-          <p className="text-gray-600">Stay updated with your bookings and special offers</p>
+          <h2 className="notif-title">Notifications</h2>
+          <p className="notif-subtitle">Stay updated with your bookings and special offers</p>
         </div>
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button variant="outline" onClick={handleMarkAllAsRead}>
-              <Check className="w-4 h-4 mr-2" />
-              Mark All Read
-            </Button>
-          )}
-          {notifications.length > 0 && (
-            <Button variant="outline" onClick={handleClearAll}>
-              Clear All
-            </Button>
-          )}
+        <div className="header-actions">
+          <button className="btn-outline" onClick={handleMarkAllRead}>
+            <Check className="w-4 h-4 mr-2" /> Mark All Read
+          </button>
+          <button className="btn-outline" onClick={handleClearAll}>
+            Clear All
+          </button>
         </div>
       </div>
 
-      <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList>
-          <TabsTrigger value="all">
-            All ({notifications.length})
-          </TabsTrigger>
-          <TabsTrigger value="unread">
-            Unread ({unreadCount})
-          </TabsTrigger>
-          <TabsTrigger value="booking">
-            Bookings
-          </TabsTrigger>
-          <TabsTrigger value="discount">
-            Discounts {discountCount > 0 && `(${discountCount})`}
-          </TabsTrigger>
-          <TabsTrigger value="reminder">
-            Reminders
-          </TabsTrigger>
-        </TabsList>
+      {/* Filter Tabs */}
+      <div className="filter-tabs">
+        <button 
+          className={`pill-tab ${filter === 'All' ? 'active' : ''}`} 
+          onClick={() => setFilter('All')}
+        >
+          All ({notifications.length})
+        </button>
+        <button 
+          className={`pill-tab ${filter === 'Unread' ? 'active' : ''}`} 
+          onClick={() => setFilter('Unread')}
+        >
+          Unread ({unreadCount})
+        </button>
+        <button 
+          className={`pill-tab ${filter === 'Bookings' ? 'active' : ''}`} 
+          onClick={() => setFilter('Bookings')}
+        >
+          Bookings
+        </button>
+        <button 
+          className={`pill-tab ${filter === 'Discounts' ? 'active' : ''}`} 
+          onClick={() => setFilter('Discounts')}
+        >
+          Discounts ({discountCount})
+        </button>
+      </div>
 
-        <TabsContent value={filter} className="mt-6">
-          {filteredNotifications.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Bell className="w-12 h-12 text-gray-400" />
+      {/* Notification List */}
+      <div className="notif-list">
+        {filteredNotifications.length > 0 ? (
+          filteredNotifications.map((notif) => (
+            <div key={notif.id} className={`notif-card ${!notif.read ? 'unread' : ''}`}>
+              
+              {/* Icon Logic */}
+              <div className={`notif-icon ${
+                  notif.type === 'booking' ? 'bg-green-100 text-green-600' : 
+                  notif.type === 'discount' ? 'bg-purple-100 text-purple-600' : 
+                  'bg-blue-100 text-blue-600'
+              }`}>
+                {notif.type === 'booking' && <Check className="w-6 h-6" />}
+                {notif.type === 'discount' && <Tag className="w-6 h-6" />}
+                {notif.type === 'reminder' && <Bell className="w-6 h-6" />}
               </div>
-              <h3 className="mb-2 text-gray-600">No Notifications</h3>
-              <p className="text-gray-500">
-                You're all caught up! Check back later for updates.
-              </p>
+
+              {/* Content */}
+              <div className="notif-content">
+                <div className="notif-top">
+                  <h4 className="notif-heading">{notif.title}</h4>
+                  <div className="notif-actions">
+                    {!notif.read && (
+                      <button className="icon-btn" onClick={() => handleMarkRead(notif.id)} title="Mark as read">
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button className="icon-btn delete" onClick={() => handleDelete(notif.id)} title="Delete">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <p className="notif-message">{notif.message}</p>
+                
+                <div className="notif-footer">
+                  <span className="notif-date">{notif.date}</span>
+                  {notif.action && (
+                    <button className="action-btn">
+                      {notif.action}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <AnimatePresence>
-                {filteredNotifications.map((notification) => (
-                  <motion.div
-                    key={notification.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -100 }}
-                    className={`bg-white rounded-xl shadow-md overflow-hidden ${
-                      !notification.read ? 'ring-2 ring-blue-500' : ''
-                    }`}
-                  >
-                    <div className="p-5">
-                      <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 ${notification.bgColor} rounded-full flex items-center justify-center flex-shrink-0`}>
-                          <notification.icon className={`w-6 h-6 ${notification.iconColor}`} />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="truncate">{notification.title}</h4>
-                              {!notification.read && (
-                                <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {!notification.read && (
-                                <button
-                                  onClick={() => handleMarkAsRead(notification.id)}
-                                  className="p-1.5 hover:bg-gray-100 rounded transition-colors"
-                                  title="Mark as read"
-                                >
-                                  <Check className="w-4 h-4 text-gray-600" />
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleDelete(notification.id)}
-                                className="p-1.5 hover:bg-gray-100 rounded transition-colors"
-                                title="Delete"
-                              >
-                                <X className="w-4 h-4 text-gray-600" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <p className="text-gray-600 mb-3">
-                            {notification.message}
-                          </p>
-
-                          {notification.discount && (
-                            <div className="flex items-center gap-2 mb-3">
-                              <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-                                {notification.discount} OFF
-                              </Badge>
-                              {notification.hostel && (
-                                <span className="text-gray-600">{notification.hostel}</span>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">
-                              {formatTimestamp(notification.timestamp)}
-                            </span>
-
-                            {notification.type === "discount" && (
-                              <Button size="sm" variant="outline">
-                                View Offer
-                              </Button>
-                            )}
-                            
-                            {notification.type === "booking" && notification.title.includes("Confirmed") && (
-                              <Button size="sm" variant="outline">
-                                View Booking
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          ))
+        ) : (
+          <div className="empty-notif">
+            <Bell className="w-12 h-12 text-gray-300 mb-3" />
+            <p>No notifications found.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

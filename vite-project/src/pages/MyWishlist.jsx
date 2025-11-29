@@ -1,146 +1,143 @@
-import { useState } from "react";
-import { Heart, MapPin, Star, Trash2, ExternalLink } from "lucide-react";
-import { motion } from "motion/react";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { toast } from "sonner@2.0.3";
+import { useState, useEffect } from 'react';
+import { MapPin, Star, Trash2, ArrowUpRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import './MyWishlist.css'; // Ensure this matches the CSS file name
 
-export function MyWishlist() {
-  const [wishlist, setWishlist] = useState([
-    {
-      id: "1",
-      name: "Urban Nest Hostel",
-      location: "Downtown, New York",
-      price: 45,
-      rating: 4.8,
-      reviews: 234,
-      image: "https://images.unsplash.com/photo-1709805619372-40de3f158e83?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBiZWRyb29tfGVufDF8fHx8MTc2MTU3OTE2NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      addedDate: "2025-11-15"
-    },
-    {
-      id: "7",
-      name: "Nomad's Haven",
-      location: "Barcelona, Spain",
-      price: 32,
-      rating: 4.9,
-      reviews: 445,
-      image: "https://images.unsplash.com/photo-1549881567-c622c1080d78?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBkb3JtJTIwcm9vbXxlbnwxfHx8fDE3NjI2NzI2NjR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      addedDate: "2025-11-18"
-    },
-    {
-      id: "8",
-      name: "Rooftop Retreat",
-      location: "Lisbon, Portugal",
-      price: 29,
-      rating: 4.8,
-      reviews: 367,
-      image: "https://images.unsplash.com/photo-1747990927764-ae2bc17a008d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjByb29mdG9wJTIwdGVycmFjZXxlbnwxfHx8fDE3NjI2NzI2NjV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      addedDate: "2025-11-20"
-    },
-    {
-      id: "14",
-      name: "Tropical Vibes Hostel",
-      location: "Bali, Indonesia",
-      price: 22,
-      rating: 4.8,
-      reviews: 634,
-      image: "https://images.unsplash.com/photo-1549881567-c622c1080d78?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3N0ZWwlMjBkb3JtJTIwcm9vbXxlbnwxfHx8fDE3NjI2NzI2NjR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-      addedDate: "2025-11-22"
+export function Wishlist() {
+  const { currentUser } = useAuth();
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Fetch Wishlist Real-time
+  useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
     }
-  ]);
 
-  const handleRemoveFromWishlist = (hostelId) => {
-    setWishlist(wishlist.filter(h => h.id !== hostelId));
-    toast.success("Removed from wishlist");
-  };
+    // Query 'wishlist' collection where userId matches current user
+    const q = query(
+      collection(db, 'wishlist'), 
+      where('userId', '==', currentUser.uid)
+    );
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    // Real-time listener
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id // FIX: Put id LAST to ensure it overwrites any 'id' inside data
+      }));
+      setWishlistItems(items);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching wishlist:", error);
+      setLoading(false);
     });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  const handleRemove = async (docId) => {
+    if(window.confirm("Remove this hostel from your wishlist?")) {
+      try {
+        await deleteDoc(doc(db, 'wishlist', docId));
+      } catch (error) {
+        console.error("Error removing item:", error);
+        alert("Failed to remove item.");
+      }
+    }
   };
+
+  const handleViewDetails = (hostelId) => {
+    navigate(`/hostel/${hostelId}`);
+  };
+
+  // Helper to format Firestore Timestamp or Date strings
+  const formatDate = (dateVal) => {
+    if (!dateVal) return 'Recently';
+    // If it's a Firestore Timestamp (has toDate method)
+    if (dateVal.toDate) return dateVal.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    // If it's a standard date string
+    return new Date(dateVal).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  if (loading) return <div className="wishlist-container"><p className="text-center p-10 text-gray-500">Loading your favorites...</p></div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="wishlist-container">
+      
+      {/* Header */}
+      <div className="wishlist-header">
         <div>
-          <h2 className="mb-2">My Wishlist</h2>
-          <p className="text-gray-600">Save your favorite hostels to visit later</p>
+          <h2 className="wishlist-title">My Wishlist</h2>
+          <p className="wishlist-subtitle">Save your favorite hostels to visit later</p>
         </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          {wishlist.length} Saved
-        </Badge>
+        <div className="wishlist-badge">
+          {wishlistItems.length} Saved
+        </div>
       </div>
 
-      {wishlist.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl">
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-12 h-12 text-gray-400" />
-          </div>
-          <h3 className="mb-2 text-gray-600">No Saved Hostels</h3>
-          <p className="text-gray-500">
-            Start exploring and save your favorite hostels here!
-          </p>
+      {/* Grid */}
+      {wishlistItems.length > 0 ? (
+        <div className="wishlist-grid">
+          {wishlistItems.map((item) => (
+            <div key={item.id} className="wishlist-card">
+              
+              {/* Image Section */}
+              <div className="card-image-container">
+                <img 
+                  src={item.image || 'https://via.placeholder.com/400x300?text=No+Image'} 
+                  alt={item.name} 
+                  className="card-image" 
+                />
+                
+                {/* Overlays */}
+                <div className="price-overlay">
+                  ${item.price}/night
+                </div>
+                <button 
+                  className="delete-btn" 
+                  onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                  title="Remove from wishlist"
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </button>
+              </div>
+
+              {/* Content Section */}
+              <div className="card-content">
+                <div className="card-main">
+                  <h3 className="hostel-name">{item.name}</h3>
+                  <div className="hostel-location">
+                    <MapPin className="w-3 h-3" /> {item.location}
+                  </div>
+                  <div className="hostel-rating">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" /> 
+                    <span className="rating-num">{item.rating || 'New'}</span>
+                    <span className="review-count">({item.reviews || 0} reviews)</span>
+                  </div>
+                </div>
+
+                <div className="card-footer">
+                  <span className="added-date">Added {formatDate(item.addedDate)}</span>
+                  <button 
+                    className="view-btn"
+                    onClick={() => handleViewDetails(item.hostelId)}
+                  >
+                    View Details <ArrowUpRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {wishlist.map((hostel) => (
-            <motion.div
-              key={hostel.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-md overflow-hidden group hover:shadow-xl transition-shadow"
-            >
-              <div className="relative h-48">
-                <img 
-                  src={hostel.image} 
-                  alt={hostel.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <button
-                  onClick={() => handleRemoveFromWishlist(hostel.id)}
-                  className="absolute top-3 right-3 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-red-50 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                </button>
-                <div className="absolute bottom-3 left-3">
-                  <Badge className="bg-white/90 backdrop-blur-sm text-gray-900">
-                    ${hostel.price}/night
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="p-5">
-                <h3 className="mb-2">{hostel.name}</h3>
-                
-                <div className="flex items-center gap-2 text-gray-600 mb-3">
-                  <MapPin className="w-4 h-4" />
-                  <span>{hostel.location}</span>
-                </div>
-
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span>{hostel.rating}</span>
-                  </div>
-                  <span className="text-gray-500">({hostel.reviews} reviews)</span>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="text-gray-500">
-                    Added {formatDate(hostel.addedDate)}
-                  </div>
-                  <Button size="sm" className="gap-2">
-                    View Details
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+        <div className="empty-wishlist">
+          <p>Your wishlist is empty. Start exploring hostels to add some!</p>
         </div>
       )}
     </div>
