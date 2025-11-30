@@ -1,27 +1,56 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, User, CornerUpLeft } from 'lucide-react';
+import { Send, User, CornerUpLeft, Building } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { 
     collection, query, orderBy, limit, onSnapshot, 
-    addDoc, serverTimestamp 
+    addDoc, serverTimestamp, doc, setDoc, getDoc
 } from 'firebase/firestore';
 import './ChatWindow.css';
 
-// Reusable component for P2P or Support chats
-export function ChatWindow({ chatId, collectionName, onClose, recipientName, recipientId }) {
+export function ChatWindow({ chatId, collectionName, onClose, recipientName, recipientId, hostelName }) {
     const { currentUser } = useAuth();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef(null);
+
+    // Ensure support chat document exists
+    useEffect(() => {
+        const ensureSupportChatExists = async () => {
+            if (collectionName === 'supportChats' && chatId && currentUser) {
+                try {
+                    const chatRef = doc(db, 'supportChats', chatId);
+                    const chatSnap = await getDoc(chatRef);
+                    
+                    if (!chatSnap.exists()) {
+                        // Create the support chat document if it doesn't exist
+                        await setDoc(chatRef, {
+                            ownerId: currentUser.uid,
+                            userId: recipientId,
+                            userEmail: recipientName,
+                            hostelName: hostelName || 'General Support',
+                            createdAt: serverTimestamp(),
+                            lastMessageAt: serverTimestamp()
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error ensuring support chat exists:", error);
+                }
+            }
+        };
+
+        ensureSupportChatExists();
+    }, [chatId, collectionName, currentUser, recipientId, recipientName, hostelName]);
 
     // 1. Real-time Message Listener
     useEffect(() => {
         if (!chatId || !collectionName) return;
 
-        // Path dynamically uses the correct collection: /chats/ or /supportChats/
+        setLoading(true);
+        
         const messagesRef = collection(db, collectionName, chatId, 'messages');
-        const q = query(messagesRef, orderBy('createdAt', 'asc'), limit(50));
+        const q = query(messagesRef, orderBy('createdAt', 'asc'), limit(100));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({
@@ -29,8 +58,10 @@ export function ChatWindow({ chatId, collectionName, onClose, recipientName, rec
                 ...doc.data()
             }));
             setMessages(msgs);
+            setLoading(false);
         }, (error) => {
             console.error(`Error fetching messages from ${collectionName}:`, error);
+            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -43,14 +74,13 @@ export function ChatWindow({ chatId, collectionName, onClose, recipientName, rec
 
     const handleSend = async (e) => {
         e.preventDefault();
-        // Check for required fields (especially recipientId for notification targeting)
         if (newMessage.trim() === '' || !currentUser || !chatId || !recipientId) return;
 
         const messageText = newMessage.trim();
-        const senderName = currentUser.displayName || 'Guest';
+        const senderName = currentUser.displayName || currentUser.email || 'Guest';
 
         try {
-            // 1. Send the Message to the specific thread in the correct collection
+            // 1. Send the Message
             const messagesRef = collection(db, collectionName, chatId, 'messages');
             await addDoc(messagesRef, {
                 senderId: currentUser.uid,
@@ -59,23 +89,46 @@ export function ChatWindow({ chatId, collectionName, onClose, recipientName, rec
                 createdAt: serverTimestamp(),
             });
             
-            // 2. Generate Notification for the Recipient (Stored in /notifications)
+            // 2. Update last message timestamp in support chat document
+            if (collectionName === 'supportChats') {
+                const chatRef = doc(db, 'supportChats', chatId);
+                await setDoc(chatRef, {
+                    lastMessageAt: serverTimestamp()
+                }, { merge: true });
+            }
+            
+            // 3. Generate Notification for the Recipient
             await addDoc(collection(db, 'notifications'), {
-                userId: recipientId, // TARGET: This is the recipient's UID
+                userId: recipientId,
                 type: 'chat',
                 title: `💬 New Message from ${senderName}`,
                 message: `You have a new message in your chat with ${senderName}.`,
                 date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 read: false,
                 action: 'View Chat',
-                relatedId: chatId, // This chatId links the notification to the thread
+                relatedId: chatId,
                 createdAt: serverTimestamp()
             });
 
             setNewMessage('');
         } catch (error) {
             console.error("Error sending message or notification:", error);
-            alert("Failed to send message/notification. Check permissions.");
+            console.error("Error details:", error.code, error.message);
+            alert(`Failed to send message: ${error.message}`);
+        }
+    };
+
+    const formatMessageTime = (timestamp) => {
+        if (!timestamp?.toDate) return 'Sending...';
+        
+        const messageDate = timestamp.toDate();
+        const now = new Date();
+        const diffInHours = (now - messageDate) / (1000 * 60 * 60);
+        
+        if (diffInHours < 24) {
+            return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
         }
     };
 
@@ -87,32 +140,66 @@ export function ChatWindow({ chatId, collectionName, onClose, recipientName, rec
                     <button className="back-btn" onClick={onClose}>
                         <CornerUpLeft size={20} />
                     </button>
-                    <h3 className="recipient-name">Chatting with {recipientName || 'Hostella Support'}</h3>
+                    <div className="chat-header-info">
+                        <h3 className="recipient-name">Chat with {recipientName || 'User'}</h3>
+                        {hostelName && (
+                            <p className="hostel-context">
+                                <Building size={14} style={{ marginRight: '6px' }} />
+                                Regarding: {hostelName}
+                            </p>
+                        )}
+                        <span className="chat-type-badge">
+                            {collectionName === 'supportChats' ? 'Support Chat' : 'Direct Message'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Messages Body */}
                 <div className="chat-messages">
-                    {messages.length === 0 && (
+                    {loading ? (
+                        <div className="empty-chat">
+                            <div className="loading-spinner"></div>
+                            <p>Loading messages...</p>
+                        </div>
+                    ) : messages.length === 0 ? (
                         <div className="empty-chat">
                             <User size={40} />
                             <p>Start your conversation!</p>
+                            <p className="empty-chat-subtitle">
+                                {collectionName === 'supportChats' 
+                                    ? 'This is a support chat about ' + (hostelName || 'your hostel')
+                                    : 'Send a message to start chatting'
+                                }
+                            </p>
                         </div>
+                    ) : (
+                        <>
+                            {messages.map((msg, index) => {
+                                const showSender = index === 0 || 
+                                    messages[index - 1].senderId !== msg.senderId;
+                                
+                                return (
+                                    <div 
+                                        key={msg.id} 
+                                        className={`message ${msg.senderId === currentUser?.uid ? 'mine' : 'theirs'} ${showSender ? 'show-sender' : 'compact'}`}
+                                    >
+                                        {showSender && msg.senderId !== currentUser?.uid && (
+                                            <span className="message-sender-name">
+                                                {msg.senderName}
+                                            </span>
+                                        )}
+                                        <div className="message-bubble">
+                                            <p className="message-text">{msg.text}</p>
+                                            <span className="message-time">
+                                                {formatMessageTime(msg.createdAt)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <div ref={messagesEndRef} />
+                        </>
                     )}
-                    {messages.map((msg) => (
-                        <div 
-                            key={msg.id} 
-                            className={`message ${msg.senderId === currentUser?.uid ? 'mine' : 'theirs'}`}
-                        >
-                            <div className="message-bubble">
-                                <span className="message-sender">{msg.senderName.split(' ')[0]}</span>
-                                <p className="message-text">{msg.text}</p>
-                                <span className="message-time">
-                                    {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Sending...'}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                    <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input Form */}
@@ -121,10 +208,17 @@ export function ChatWindow({ chatId, collectionName, onClose, recipientName, rec
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        disabled={!currentUser || !chatId}
+                        placeholder={collectionName === 'supportChats' 
+                            ? `Type your response about ${hostelName || 'the hostel'}...` 
+                            : "Type a message..."
+                        }
+                        disabled={!currentUser || !chatId || loading}
                     />
-                    <button type="submit" disabled={!currentUser || !chatId}>
+                    <button 
+                        type="submit" 
+                        disabled={!currentUser || !chatId || loading || newMessage.trim() === ''}
+                        className={newMessage.trim() === '' ? 'disabled' : ''}
+                    >
                         <Send size={20} />
                     </button>
                 </form>

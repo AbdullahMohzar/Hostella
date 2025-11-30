@@ -5,7 +5,7 @@ import RoommateCard from '../components/RoommateCard'
 import SearchBar from '../components/SearchBar'
 import { CompareHostels } from './CompareHostels' 
 import { SeedRoommates } from '../components/SeedRoommates' 
-import { collection, getDocs, query, writeBatch, doc, getDoc, where, setDoc } from 'firebase/firestore'
+import { collection, getDocs, query, writeBatch, doc, getDoc, where, setDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import hostelsData from '../data/hostels.json'
 import heroImage from '../assets/2280feee79ed9810e3a864e738a4ea7ee9086c87.png'
@@ -39,21 +39,22 @@ function Home() {
   
 
   // ==========================================
-  //  FETCH BLOCKED USERS
+  //  FETCH BLOCKED ROOMMATES - FIXED
   // ==========================================
   useEffect(() => {
     if (!currentUser) return;
     
-    // Path: /users/{currentUser.uid}/blockedHostels
-    const blockedRef = collection(db, 'users', currentUser.uid, 'blockedHostels');
+    // FIXED: Changed from blockedHostels to blockedRoommates
+    const blockedRef = collection(db, 'users', currentUser.uid, 'blockedRoommates');
     
     const fetchBlocked = async () => {
         try {
             const snapshot = await getDocs(blockedRef);
             const blockedIds = new Set(snapshot.docs.map(doc => doc.id));
             setBlockedRoommates(blockedIds);
+            console.log('Fetched blocked roommates:', Array.from(blockedIds));
         } catch (error) {
-            console.error("Failed to fetch blocked users:", error);
+            console.error("Failed to fetch blocked roommates:", error);
         }
     };
     
@@ -119,19 +120,115 @@ function Home() {
   }, [currentUser]) 
 
   // ==========================================
-  //  BLOCK/HIDE ROOMMATE HANDLER
+  //  BLOCK/HIDE ROOMMATE HANDLER - IMPROVED
   // ==========================================
   const handleBlockRoommate = async (roommateId) => {
-      if (!currentUser) return;
+      if (!currentUser) {
+          alert('Please log in to block roommates');
+          return;
+      }
       
       const blockRef = doc(db, 'users', currentUser.uid, 'blockedRoommates', roommateId);
       
       try {
-          await setDoc(blockRef, { blockedAt: new Date().toISOString() });
-          setBlockedRoommates(prev => new Set(prev).add(roommateId));
+          // Check if already blocked
+          if (blockedRoommates.has(roommateId)) {
+              // Unblock if already blocked
+              await deleteDoc(blockRef);
+              setBlockedRoommates(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(roommateId);
+                  return newSet;
+              });
+              console.log('Roommate unblocked:', roommateId);
+          } else {
+              // Block the roommate
+              await setDoc(blockRef, { 
+                  blockedAt: new Date().toISOString(),
+                  blockedUserId: roommateId
+              });
+              setBlockedRoommates(prev => new Set(prev).add(roommateId));
+              console.log('Roommate blocked:', roommateId);
+          }
+          
+          // Refresh the roommates list to immediately reflect the change
+          if (activeTab === 'roommates') {
+              const fetchRoommates = async () => {
+                  try {
+                      const qSample = query(collection(db, 'roommates'));
+                      const qRealUsers = query(collection(db, 'users'), where('lookingForRoommate', '==', true));
+                      
+                      const [sampleSnapshot, realUserSnapshot] = await Promise.all([
+                          getDocs(qSample), 
+                          getDocs(qRealUsers)
+                      ]);
+                      
+                      let fetchedRoommates = [];
+                      
+                      // Combine sample and real users
+                      sampleSnapshot.docs.forEach(doc => { 
+                          fetchedRoommates.push({ id: doc.id, ...doc.data(), isSample: true }); 
+                      });
+                      realUserSnapshot.docs.forEach(doc => {
+                          const data = doc.data();
+                          if (doc.id !== currentUser?.uid) { 
+                              fetchedRoommates.push({ id: doc.id, ...data }); 
+                          }
+                      });
+
+                      // Filter out blocked users
+                      fetchedRoommates = fetchedRoommates.filter(r => !blockedRoommates.has(r.id));
+                      
+                      // Apply UI filtering and compatibility logic...
+                      let filtered = fetchedRoommates;
+                      
+                      if (roommateFilters.gender) { 
+                          filtered = filtered.filter(r => r.gender === roommateFilters.gender); 
+                      }
+                      if (roommateFilters.smoker) { 
+                          filtered = filtered.filter(r => r.smoker === roommateFilters.smoker); 
+                      }
+                      if (roommateFilters.cleanliness) { 
+                          filtered = filtered.filter(r => r.cleanliness === roommateFilters.cleanliness); 
+                      }
+
+                      // Compatibility logic
+                      if (userProfile && currentUser) {
+                          filtered = filtered.map(roommate => {
+                              let score = 50; 
+                              const userAge = parseInt(userProfile.age) || 25;
+                              const roommateAge = parseInt(roommate.age) || 25;
+
+                              if (userProfile.smoker === roommate.smoker) score += 15; else score -= 10;
+                              if (userProfile.cleanliness === roommate.cleanliness) score += 15;
+                              if (userProfile.sleepSchedule === roommate.sleepSchedule) score += 15;
+                              else if (userProfile.sleepSchedule === 'Flexible' || roommate.sleepSchedule === 'Flexible') score += 10;
+                              if (userProfile.occupation === roommate.occupation) score += 5;
+
+                              const ageDiff = Math.abs(userAge - roommateAge);
+                              if (ageDiff <= 3) score += 10;
+
+                              return { ...roommate, matchScore: Math.min(100, Math.max(0, score)) };
+                          });
+                          filtered.sort((a, b) => b.matchScore - a.matchScore);
+                      } else {
+                          filtered = filtered.map(r => ({ ...r, matchScore: Math.floor(Math.random() * 20) + 70 }));
+                      }
+
+                      setRoommates(filtered);
+
+                  } catch (error) {
+                      console.error("Error refreshing roommates after block:", error);
+                  }
+              };
+              
+              fetchRoommates();
+          }
           
       } catch (error) {
-          console.error("Error blocking roommate:", error);
+          console.error("Error blocking/unblocking roommate:", error);
+          console.error("Error details:", error.code, error.message);
+          alert(`Failed to block roommate: ${error.message}`);
       }
   };
 
@@ -153,22 +250,32 @@ function Home() {
             let fetchedRoommates = [];
             
             // Combine sample and real users
-            sampleSnapshot.docs.forEach(doc => { fetchedRoommates.push({ id: doc.id, ...doc.data(), isSample: true }); });
+            sampleSnapshot.docs.forEach(doc => { 
+                fetchedRoommates.push({ id: doc.id, ...doc.data(), isSample: true }); 
+            });
             realUserSnapshot.docs.forEach(doc => {
                 const data = doc.data();
-                if (doc.id !== currentUser?.uid) { fetchedRoommates.push({ id: doc.id, ...data }); }
+                if (doc.id !== currentUser?.uid) { 
+                    fetchedRoommates.push({ id: doc.id, ...data }); 
+                }
             });
 
             // --- 0. Filter Out Blocked Users ---
             fetchedRoommates = fetchedRoommates.filter(r => !blockedRoommates.has(r.id));
+            console.log('Roommates after blocking filter:', fetchedRoommates.length);
             
             // --- 1. Apply UI Filtering ---
             let filtered = fetchedRoommates;
             
-            if (roommateFilters.gender) { filtered = filtered.filter(r => r.gender === roommateFilters.gender); }
-            if (roommateFilters.smoker) { filtered = filtered.filter(r => r.smoker === roommateFilters.smoker); }
-            if (roommateFilters.cleanliness) { filtered = filtered.filter(r => r.cleanliness === roommateFilters.cleanliness); }
-
+            if (roommateFilters.gender) { 
+                filtered = filtered.filter(r => r.gender === roommateFilters.gender); 
+            }
+            if (roommateFilters.smoker) { 
+                filtered = filtered.filter(r => r.smoker === roommateFilters.smoker); 
+            }
+            if (roommateFilters.cleanliness) { 
+                filtered = filtered.filter(r => r.cleanliness === roommateFilters.cleanliness); 
+            }
 
             // --- 2. Compatibility Logic (Scoring) ---
             if (userProfile && currentUser) {
@@ -482,7 +589,13 @@ function Home() {
                   </div>
               ) : roommates.length > 0 ? (
                  roommates.map((roommate) => (
-                    <RoommateCard key={roommate.id} {...roommate} onBlock={handleBlockRoommate} currentUserId={currentUser?.uid} /> 
+                    <RoommateCard 
+                      key={roommate.id} 
+                      {...roommate} 
+                      onBlock={handleBlockRoommate} 
+                      currentUserId={currentUser?.uid}
+                      isBlocked={blockedRoommates.has(roommate.id)} // Pass blocked status
+                    /> 
                  ))
               ) : (
                  <div className="no-results"><p>No roommates found matching your current criteria.</p></div>
