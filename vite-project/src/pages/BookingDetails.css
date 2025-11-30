@@ -1,0 +1,277 @@
+.booking-detail-page {
+    min-height: 100vh;
+    background-color: #f3f4f6;
+    padding: 40px 20px;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.booking-detail-page.dark {
+    background-color: #1a1a1a;
+    color: #fff;
+}
+
+.detail-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: #6b7280;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+}
+
+.back-button:hover {
+    color: #1f2937;
+}
+
+.booking-header-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 10px;
+}
+
+.booking-main-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 0;
+}
+
+.booking-detail-page.dark .booking-main-title {
+    color: #fff;
+}
+
+/* Status Pill */
+.status-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.status-pill.confirmed { background-color: #dcfce7; color: #15803d; }
+.status-pill.pending { background-color: #fef3c7; color: #92400e; }
+.status-pill.cancelled { background-color: #fee2e2; color: #991b1b; }
+
+
+/* --- Main Content Grid --- */
+.booking-content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+}
+
+/* --- Left Card (Hostel Summary) --- */
+.hostel-summary-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+}
+
+.booking-detail-page.dark .hostel-summary-card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.hostel-image {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+}
+
+.hostel-text-info {
+    padding: 20px;
+}
+
+.hostel-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+}
+
+.booking-detail-page.dark .hostel-title {
+    color: #fff;
+}
+
+
+.hostel-location-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 1rem;
+    margin: 0 0 12px 0;
+}
+
+.booking-ref {
+    color: #9ca3af;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* --- Right Card (Details & Actions) --- */
+.booking-info-card {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    border: 1px solid #e5e7eb;
+    height: fit-content;
+}
+
+.booking-detail-page.dark .booking-info-card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.detail-row-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.detail-row-item:last-of-type {
+    border-bottom: none;
+}
+
+.detail-icon {
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+.detail-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.booking-detail-page.dark .detail-value {
+    color: #fff;
+}
+
+
+/* Price Summary */
+.price-summary-box {
+    text-align: center;
+    padding: 20px 0;
+    margin-top: 20px;
+    border-top: 2px dashed #e5e7eb;
+}
+
+.summary-label {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.booking-detail-page.dark .summary-label {
+    color: #fff;
+}
+
+.summary-amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #10b981; /* Green color for price */
+}
+
+.discount-applied {
+    display: block;
+    font-size: 0.85rem;
+    color: #9333ea;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+/* Action Buttons */
+.action-area {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.contact-owner-btn, .btn-cancel-big, .btn-extend {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.contact-owner-btn {
+    background: #4b5563;
+    color: white;
+}
+
+.contact-owner-btn:hover {
+    background: #1f2937;
+}
+
+.btn-extend {
+    background: #dbeafe;
+    color: #2563eb;
+    border: 1px solid #93c5fd;
+}
+
+.btn-extend:hover {
+    background: #bfdbfe;
+}
+
+.btn-cancel-big {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fee2e2;
+}
+
+.btn-cancel-big:hover {
+    background: #fca5a5;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .booking-content-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .hostel-image {
+        height: 200px;
+    }
+}

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../components/ThemeContext'
 import HostelCard from '../components/HostelCard'
 import RoommateCard from '../components/RoommateCard'
+import SearchBar from '../components/SearchBar'
 import { CompareHostels } from './CompareHostels' 
-import { SeedRoommates } from '../components/SeedRoomates' 
+import { SeedRoommates } from '../components/SeedRoommates' 
 import { collection, getDocs, query, writeBatch, doc, getDoc, where, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import hostelsData from '../data/hostels.json'
@@ -36,7 +37,6 @@ function Home() {
   const [maxPrice, setMaxPrice] = useState('')
   const [rating, setRating] = useState('')
   
-  // Note: activeFilters state is now redundant, replaced by hostelFilters
 
   // ==========================================
   //  FETCH BLOCKED USERS
@@ -44,10 +44,9 @@ function Home() {
   useEffect(() => {
     if (!currentUser) return;
     
-    // Path: /users/{currentUser.uid}/blockedRoommates
-    const blockedRef = collection(db, 'users', currentUser.uid, 'blockedRoommates');
+    // Path: /users/{currentUser.uid}/blockedHostels
+    const blockedRef = collection(db, 'users', currentUser.uid, 'blockedHostels');
     
-    // Fetch once on load
     const fetchBlocked = async () => {
         try {
             const snapshot = await getDocs(blockedRef);
@@ -120,23 +119,19 @@ function Home() {
   }, [currentUser]) 
 
   // ==========================================
-  //  BLOCK/HIDE ROOMMATE HANDLER (Saves to Firestore)
+  //  BLOCK/HIDE ROOMMATE HANDLER
   // ==========================================
   const handleBlockRoommate = async (roommateId) => {
-      if (!currentUser) return alert("You must be logged in to hide a profile.");
+      if (!currentUser) return;
       
       const blockRef = doc(db, 'users', currentUser.uid, 'blockedRoommates', roommateId);
       
       try {
-          // Add a simple document (name is sufficient) to the subcollection
           await setDoc(blockRef, { blockedAt: new Date().toISOString() });
-          
-          // Update local state to hide it instantly
           setBlockedRoommates(prev => new Set(prev).add(roommateId));
           
       } catch (error) {
           console.error("Error blocking roommate:", error);
-          alert("Could not hide profile. Check security rules.");
       }
   };
 
@@ -246,7 +241,6 @@ function Home() {
   };
   
   const handleApplyRoommateFilters = (newFilters) => {
-    // This handler is now responsible for setting the main filters for roommates
     setRoommateFilters(newFilters);
     setIsFilterOpen(false);
   };
@@ -488,7 +482,7 @@ function Home() {
                   </div>
               ) : roommates.length > 0 ? (
                  roommates.map((roommate) => (
-                    <RoommateCard key={roommate.id} {...roommate} onBlock={handleBlockRoommate} /> 
+                    <RoommateCard key={roommate.id} {...roommate} onBlock={handleBlockRoommate} currentUserId={currentUser?.uid} /> 
                  ))
               ) : (
                  <div className="no-results"><p>No roommates found matching your current criteria.</p></div>

@@ -8,6 +8,7 @@ import {
   serverTimestamp, query, where, onSnapshot 
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { ChatWindow } from '../components/ChatWindow' // Import ChatWindow
 import './HostelDetails.css'
 
 function HostelDetails() {
@@ -27,6 +28,9 @@ function HostelDetails() {
   const [reviews, setReviews] = useState([])
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
   const [reviewLoading, setReviewLoading] = useState(false)
+  
+  // Chat State (NEW)
+  const [isOwnerChatOpen, setIsOwnerChatOpen] = useState(false);
 
   const [bookingDates, setBookingDates] = useState({
     checkIn: '',
@@ -95,7 +99,6 @@ function HostelDetails() {
         id: doc.id,
         ...doc.data()
       }));
-      // Sort by date (newest first) locally
       reviewsData.sort((a, b) => {
         const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
         const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
@@ -142,21 +145,13 @@ function HostelDetails() {
     }
   }
 
-  // --- SUBMIT REVIEW & UPDATE RATING ---
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
-    if (!currentUser) {
-      alert("Please login to leave a review.");
-      return;
-    }
-    if (!reviewForm.comment.trim()) {
-      alert("Please write a comment.");
-      return;
-    }
+    if (!currentUser) { alert("Please login to leave a review."); return; }
+    if (!reviewForm.comment.trim()) { alert("Please write a comment."); return; }
 
     setReviewLoading(true);
     try {
-      // 1. Add Review to 'reviews' collection
       await addDoc(collection(db, 'reviews'), {
         hostelId: id,
         userId: currentUser.uid,
@@ -166,31 +161,21 @@ function HostelDetails() {
         createdAt: serverTimestamp()
       });
 
-      // 2. Calculate New Average Rating
       const currentRating = parseFloat(hostel.rating) || 0;
       const currentReviews = parseInt(hostel.reviews) || 0;
       const newRatingValue = parseInt(reviewForm.rating);
 
       const newReviewCount = currentReviews + 1;
-      
-      // Weighted average formula
       const newAverageRating = ((currentRating * currentReviews) + newRatingValue) / newReviewCount;
       const roundedRating = Math.round(newAverageRating * 10) / 10;
 
-      // 3. Update Hostel Document
       const hostelRef = doc(db, 'hostels', id);
       await updateDoc(hostelRef, {
         rating: roundedRating,
         reviews: newReviewCount
       });
 
-      // 4. Update Local State
-      setHostel(prev => ({
-        ...prev,
-        rating: roundedRating,
-        reviews: newReviewCount
-      }));
-
+      setHostel(prev => ({ ...prev, rating: roundedRating, reviews: newReviewCount }));
       setReviewForm({ rating: 5, comment: '' }); 
       alert("Review submitted! Hostel rating updated.");
     } catch (error) {
@@ -211,37 +196,19 @@ function HostelDetails() {
   }
 
   const handleBooking = async () => {
-    if (!currentUser) {
-      navigate('/login')
-      return
-    }
-    if (!bookingDates.checkIn || !bookingDates.checkOut) {
-      alert('Please select check-in and check-out dates')
-      return
-    }
-
+    if (!currentUser) { navigate('/login'); return }
+    if (!bookingDates.checkIn || !bookingDates.checkOut) { alert('Please select check-in and check-out dates'); return }
     const totalPrice = calculateTotal()
-    if (totalPrice === 0) {
-      alert('Invalid date range')
-      return
-    }
+    if (totalPrice === 0) { alert('Invalid date range'); return }
 
     setBookingLoading(true)
 
     try {
       await addDoc(collection(db, 'bookings'), {
-        userId: currentUser.uid,
-        userEmail: currentUser.email,
-        ownerId: hostel.ownerId || 'unknown',
-        hostelId: hostel.id,
-        hostelName: hostel.name,
-        hostelImage: hostel.images?.[0] || hostel.image || '',
-        location: hostel.location,
-        checkIn: bookingDates.checkIn,
-        checkOut: bookingDates.checkOut,
-        totalPrice: totalPrice,
-        status: 'pending',
-        createdAt: serverTimestamp(),
+        userId: currentUser.uid, userEmail: currentUser.email, ownerId: hostel.ownerId || 'unknown',
+        hostelId: hostel.id, hostelName: hostel.name, hostelImage: hostel.images?.[0] || hostel.image || '',
+        location: hostel.location, checkIn: bookingDates.checkIn, checkOut: bookingDates.checkOut,
+        totalPrice: totalPrice, status: 'pending', createdAt: serverTimestamp(),
         bookingDate: new Date().toISOString()
       })
 
@@ -254,6 +221,25 @@ function HostelDetails() {
       setBookingLoading(false)
     }
   }
+  
+  // NEW: Handler to launch Owner Chat
+  const handleContactOwner = () => {
+      if (!currentUser) {
+          alert("You must be logged in to contact the owner.");
+          return;
+      }
+      if (!hostel.ownerId) {
+          alert("Owner ID not found for this hostel.");
+          return;
+      }
+      
+      // Determine a unique chat ID for this thread (HostelID_UserID)
+      const chatId = `${hostel.id}_${currentUser.uid}`;
+      
+      // Launch the chat window modal
+      setIsOwnerChatOpen(true);
+  };
+
 
   if (loading) return <div className="loading-container">Loading details...</div>
   if (!hostel) return <div className="error-container">Hostel not found.</div>
@@ -393,6 +379,8 @@ function HostelDetails() {
                 )}
               </div>
             </div>
+            {/* ----------------------- */}
+
           </div>
 
           <div className="booking-section">
@@ -420,6 +408,17 @@ function HostelDetails() {
                     </div>
                   </div>
                 )}
+                
+                {/* NEW: CONTACT OWNER BUTTON */}
+                <button 
+                    onClick={handleContactOwner} 
+                    className="book-button contact-owner-btn-detail"
+                    disabled={!currentUser || !hostel.ownerId}
+                    style={{marginBottom: '10px'}}
+                >
+                    <MessageSquare size={16} /> Contact Owner
+                </button>
+                
                 <button onClick={handleBooking} className="book-button" disabled={bookingLoading}>
                   {bookingLoading ? 'Processing...' : (currentUser ? 'Book Now' : 'Login to Book')}
                 </button>
@@ -428,6 +427,17 @@ function HostelDetails() {
           </div>
         </div>
       </div>
+      
+      {/* NEW: Chat Modal Render */}
+      {isOwnerChatOpen && currentUser && (
+          <ChatWindow
+            chatId={`${hostel.id}_${currentUser.uid}`} // Unique Hostel-User Chat ID
+            collectionName="supportChats"
+            onClose={() => setIsOwnerChatOpen(false)}
+            recipientName={hostel.ownerName || 'Hostel Owner'}
+            recipientId={hostel.ownerId} // Owner's UID
+        />
+      )}
     </div>
   )
 }

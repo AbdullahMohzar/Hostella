@@ -1,23 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Tag, Bell, Calendar } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.jsx';
-import { db } from '../firebase.js';
+import { Check, X, Tag, Bell, MessageSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
 import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  addDoc, 
-  deleteDoc, 
-  updateDoc, 
-  doc, 
-  serverTimestamp,
-  writeBatch,
-  getDocs
+  collection, query, where, onSnapshot, 
+  addDoc, serverTimestamp, updateDoc, doc, writeBatch, getDocs, deleteDoc
 } from 'firebase/firestore';
 import './Notifications.css';
 
-export function Notifications() {
+// Added onAction prop to handle navigation/logic when button is clicked
+export function Notifications({ onAction }) {
   const { currentUser } = useAuth();
   const [filter, setFilter] = useState('All');
   const [notifications, setNotifications] = useState([]);
@@ -25,7 +17,10 @@ export function Notifications() {
 
   // --- 1. REAL-TIME LISTENER: Fetch Notifications ---
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) { 
+        setLoading(false); 
+        return;
+    }
 
     const q = query(
       collection(db, 'notifications'), 
@@ -38,7 +33,6 @@ export function Notifications() {
         ...doc.data()
       }));
       
-      // Sort by date (newest first) locally since serverTimestamp can be null initially
       items.sort((a, b) => {
          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date();
@@ -47,51 +41,54 @@ export function Notifications() {
 
       setNotifications(items);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching notifications:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [currentUser]);
 
 
-  // --- 2. BOOKING SYNC: Generate Notification when Booking is made ---
+  // --- 2. BOOKING SYNC: Generate Notification when Booking is Confirmed (FINAL FIX) ---
   useEffect(() => {
     if (!currentUser) return;
 
-    // Listen to Bookings to auto-generate notifications
     const qBookings = query(
       collection(db, 'bookings'),
       where('userId', '==', currentUser.uid)
+      // Filter out bookings that have ALREADY been notified
+      // where('hasNotified', '!=', true) <-- This requires an index, so we check existence in the loop
     );
 
     const unsubscribeBookings = onSnapshot(qBookings, async (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
-        if (change.type === 'added') {
-          const booking = change.doc.data();
-          const bookingId = change.doc.id;
+        const booking = change.doc.data();
+        const bookingId = change.doc.id;
 
-          // Check if we already notified about this booking to avoid duplicates
-          // We assume we store 'relatedId' in the notification
-          const qCheck = query(
-            collection(db, 'notifications'),
-            where('relatedId', '==', bookingId)
-          );
-          const checkSnap = await getDocs(qCheck);
-
-          if (checkSnap.empty) {
-            // Generate "Booking Confirmed" Notification
-            await addDoc(collection(db, 'notifications'), {
+        // Condition 1: Status is CONFIRMED
+        // Condition 2: Ensure we haven't already processed this status change
+        if (booking.status === 'confirmed' && booking.hasNotified !== true) {
+          
+          // 1. GENERATE NOTIFICATION
+          await addDoc(collection(db, 'notifications'), {
                userId: currentUser.uid,
                type: 'booking',
-               title: 'Booking Confirmed',
+               title: 'Booking Confirmed!',
                message: `Your stay at ${booking.hostelName} is confirmed for ${booking.checkIn}.`,
                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                read: false,
                action: 'View Booking',
-               relatedId: bookingId, // Link to booking
+               relatedId: bookingId, 
+               hostelId: booking.hostelId,
                createdAt: serverTimestamp()
-            });
-            console.log("🔔 Notification generated for booking:", bookingId);
-          }
+          });
+
+          // 2. STAMP THE BOOKING DOCUMENT (CRITICAL STEP)
+          // This stops the listener from firing for this confirmed booking ever again on reload/status change
+          await updateDoc(doc(db, 'bookings', bookingId), {
+              hasNotified: true
+          });
         }
       });
     });
@@ -100,57 +97,22 @@ export function Notifications() {
   }, [currentUser]);
 
 
-  // --- 3. RANDOM OFFER GENERATOR (Simulated) ---
-  useEffect(() => {
-    if (!currentUser) return;
-
-    // Run a check every 60 seconds to maybe add an offer
-    const interval = setInterval(async () => {
-      const randomChance = Math.random();
-      
-      // 30% chance to get an offer, and ensure we don't spam (limit to 3 unread discounts)
-      const discountCount = notifications.filter(n => n.type === 'discount' && !n.read).length;
-      
-      if (randomChance > 0.7 && discountCount < 3) {
-        const offers = [
-          { title: "Flash Sale: 20% Off!", msg: "Weekend special at Margalla View! Book now." },
-          { title: "Free Breakfast Upgrade", msg: "Book your next stay in G-12 and get free breakfast." },
-          { title: "Partner Discount", msg: "Get 10% off hiking gear with your next booking." }
-        ];
-        const randomOffer = offers[Math.floor(Math.random() * offers.length)];
-
-        await addDoc(collection(db, 'notifications'), {
-           userId: currentUser.uid,
-           type: 'discount',
-           title: randomOffer.title,
-           message: randomOffer.msg,
-           date: 'Just now',
-           read: false,
-           action: 'View Offer',
-           createdAt: serverTimestamp()
-        });
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [currentUser, notifications]);
-
-
   // --- Actions ---
 
   const handleMarkRead = async (id) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), { read: true });
+        await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (error) {
-      console.error("Error marking read:", error);
+        console.error("Error marking read:", error);
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, 'notifications', id));
+        await deleteDoc(doc(db, 'notifications', id));
     } catch (error) {
-      console.error("Error deleting notification:", error);
+        console.error("Error deleting notification:", error);
+        alert("Failed to delete notification. Check permissions.");
     }
   };
 
@@ -158,21 +120,27 @@ export function Notifications() {
     const batch = writeBatch(db);
     notifications.forEach(n => {
        if (!n.read) {
-         const ref = doc(db, 'notifications', n.id);
-         batch.update(ref, { read: true });
+         batch.update(doc(db, 'notifications', n.id), { read: true });
        }
     });
-    await batch.commit();
+    try {
+        await batch.commit();
+    } catch (error) {
+        console.error("Error marking all read:", error);
+        alert("Failed to mark all read. Check permissions.");
+    }
   };
 
   const handleClearAll = async () => {
-    if(window.confirm("Clear all notifications?")) {
+    if(window.confirm("Clear all notifications? This action cannot be undone.")) {
       const batch = writeBatch(db);
-      notifications.forEach(n => {
-         const ref = doc(db, 'notifications', n.id);
-         batch.delete(ref);
-      });
-      await batch.commit();
+      notifications.forEach(n => batch.delete(doc(db, 'notifications', n.id)));
+      try {
+          await batch.commit();
+      } catch (error) {
+          console.error("Error clearing all:", error);
+          alert("Failed to clear all notifications. Check permissions.");
+      }
     }
   };
 
@@ -181,13 +149,15 @@ export function Notifications() {
     if (filter === 'All') return true;
     if (filter === 'Unread') return !n.read;
     if (filter === 'Bookings') return n.type === 'booking';
-    if (filter === 'Discounts') return n.type === 'discount';
-    if (filter === 'Reminders') return n.type === 'reminder';
+    if (filter === 'Offers') return n.type === 'offer';
+    if (filter === 'Chat') return n.type === 'chat';
     return true;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const discountCount = notifications.filter(n => n.type === 'discount').length;
+  const offersCount = notifications.filter(n => n.type === 'offer').length;
+  const chatCount = notifications.filter(n => n.type === 'chat').length;
+
 
   if (loading) return <div className="p-10 text-center text-gray-500">Loading updates...</div>;
 
@@ -212,30 +182,11 @@ export function Notifications() {
 
       {/* Filter Tabs */}
       <div className="filter-tabs">
-        <button 
-          className={`pill-tab ${filter === 'All' ? 'active' : ''}`} 
-          onClick={() => setFilter('All')}
-        >
-          All ({notifications.length})
-        </button>
-        <button 
-          className={`pill-tab ${filter === 'Unread' ? 'active' : ''}`} 
-          onClick={() => setFilter('Unread')}
-        >
-          Unread ({unreadCount})
-        </button>
-        <button 
-          className={`pill-tab ${filter === 'Bookings' ? 'active' : ''}`} 
-          onClick={() => setFilter('Bookings')}
-        >
-          Bookings
-        </button>
-        <button 
-          className={`pill-tab ${filter === 'Discounts' ? 'active' : ''}`} 
-          onClick={() => setFilter('Discounts')}
-        >
-          Discounts ({discountCount})
-        </button>
+        <button className={`pill-tab ${filter === 'All' ? 'active' : ''}`} onClick={() => setFilter('All')}>All ({notifications.length})</button>
+        <button className={`pill-tab ${filter === 'Unread' ? 'active' : ''}`} onClick={() => setFilter('Unread')}>Unread ({unreadCount})</button>
+        <button className={`pill-tab ${filter === 'Bookings' ? 'active' : ''}`} onClick={() => setFilter('Bookings')}>Bookings</button>
+        <button className={`pill-tab ${filter === 'Offers' ? 'active' : ''}`} onClick={() => setFilter('Offers')}>Offers ({offersCount})</button>
+        <button className={`pill-tab ${filter === 'Chat' ? 'active' : ''}`} onClick={() => setFilter('Chat')}>Chat ({chatCount})</button>
       </div>
 
       {/* Notification List */}
@@ -247,12 +198,13 @@ export function Notifications() {
               {/* Icon Logic */}
               <div className={`notif-icon ${
                   notif.type === 'booking' ? 'bg-green-100 text-green-600' : 
-                  notif.type === 'discount' ? 'bg-purple-100 text-purple-600' : 
-                  'bg-blue-100 text-blue-600'
+                  notif.type === 'offer' ? 'bg-purple-100 text-purple-600' : 
+                  notif.type === 'chat' ? 'bg-blue-100 text-blue-600' :
+                  'bg-blue-100 text-blue-600' // Default
               }`}>
                 {notif.type === 'booking' && <Check className="w-6 h-6" />}
-                {notif.type === 'discount' && <Tag className="w-6 h-6" />}
-                {notif.type === 'reminder' && <Bell className="w-6 h-6" />}
+                {notif.type === 'offer' && <Tag className="w-6 h-6" />}
+                {notif.type === 'chat' && <MessageSquare size={20} />}
               </div>
 
               {/* Content */}
@@ -274,9 +226,27 @@ export function Notifications() {
                 <p className="notif-message">{notif.message}</p>
                 
                 <div className="notif-footer">
-                  <span className="notif-date">{notif.date}</span>
+                  <span className="notif-date">
+                    {notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                  </span>
+                  
+                  {/* ACTION BUTTON (View Booking / View Chat / View Offer) */}
                   {notif.action && (
-                    <button className="action-btn">
+                    <button 
+                      className="action-btn"
+                      onClick={() => {
+                        // Pass control back to UserDashboard via the onAction prop
+                        if (onAction) {
+                           onAction({ 
+                             type: notif.type, 
+                             relatedId: notif.relatedId, 
+                             discount: notif.discount || 0,
+                             hostelId: notif.hostelId 
+                           });
+                           handleMarkRead(notif.id); // Mark read when action is taken
+                        }
+                      }}
+                    >
                       {notif.action}
                     </button>
                   )}

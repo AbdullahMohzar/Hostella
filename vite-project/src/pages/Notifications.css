@@ -1,6 +1,6 @@
 .notifications-container {
   font-family: 'Inter', system-ui, sans-serif;
-  max-width: 1000px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px 0;
 }
@@ -10,12 +10,12 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 24px;
+  margin-bottom: 30px;
 }
 
 .notif-title {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #111827;
   margin: 0 0 8px 0;
 }
@@ -39,7 +39,7 @@
   background: white;
   border-radius: 8px;
   color: #374151;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -53,19 +53,19 @@
 /* --- Filters --- */
 .filter-tabs {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 32px;
   flex-wrap: wrap;
 }
 
 .pill-tab {
   padding: 8px 16px;
-  border-radius: 20px; /* Pill shape */
+  border-radius: 20px;
   border: none;
   background: #f3f4f6;
   color: #4b5563;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -76,7 +76,7 @@
 }
 
 .pill-tab.active {
-  background: #111827; /* Dark active state like image */
+  background: #111827; /* Dark active state */
   color: white;
 }
 
@@ -91,18 +91,23 @@
   display: flex;
   gap: 20px;
   background: white;
-  border: 1px solid #f3f4f6;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02); /* Subtle shadow */
-  transition: box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.notif-card.unread {
+  border-left: 4px solid #2563eb; /* Blue indicator for unread */
 }
 
 .notif-card:hover {
-  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
 }
 
-/* Icon Styles */
+/* Icons */
 .notif-icon {
   width: 48px;
   height: 48px;
@@ -113,7 +118,7 @@
   flex-shrink: 0;
 }
 
-/* Colors matching the image */
+/* Colors */
 .bg-green-100 { background-color: #dcfce7; }
 .text-green-600 { color: #16a34a; }
 
@@ -123,7 +128,7 @@
 .bg-blue-100 { background-color: #dbeafe; }
 .text-blue-600 { color: #2563eb; }
 
-/* Content Layout */
+/* Content */
 .notif-content {
   flex: 1;
 }
@@ -132,7 +137,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .notif-heading {
@@ -144,7 +149,7 @@
 
 .notif-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .icon-btn {
@@ -162,29 +167,23 @@
 
 .notif-message {
   color: #4b5563;
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.notif-meta {
-  color: #6b7280;
-  font-size: 0.9rem;
-  margin: 0 0 12px 0;
-  font-weight: 500;
-}
-
-/* Footer (Date & Button) */
+/* Footer */
 .notif-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .notif-date {
   color: #9ca3af;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .action-btn {
@@ -194,7 +193,7 @@
   border-radius: 8px;
   color: #1f2937;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -208,41 +207,9 @@
 /* Empty State */
 .empty-notif {
   text-align: center;
-  padding: 60px;
+  padding: 80px;
   background: #f9fafb;
   border-radius: 16px;
   color: #9ca3af;
-}
-
-/* Mobile Responsiveness */
-@media (max-width: 640px) {
-  .notif-header-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-  
-  .header-actions {
-    width: 100%;
-  }
-  
-  .btn-outline {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .notif-card {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .notif-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  
-  .action-btn {
-    width: 100%;
-  }
+  border: 2px dashed #e5e7eb;
 }

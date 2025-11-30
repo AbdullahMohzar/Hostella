@@ -1,15 +1,16 @@
 .hostel-card {
   background: white;
-  border-radius: 8px; /* Slightly less rounded to match image */
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
   height: 100%;
   position: relative;
+  min-height: 420px; /* Ensure minimum height for all content */
 }
 
 .hostel-card:hover {
@@ -19,7 +20,7 @@
 
 /* --- Image Section --- */
 .hostel-card-image {
-  height: 200px;
+  height: 220px;
   width: 100%;
   position: relative;
   background-color: #f3f4f6;
@@ -31,13 +32,13 @@
   object-fit: cover;
 }
 
-/* Wishlist Heart Button */
+/* Wishlist Button (Heart) */
 .wishlist-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: white;
-  border: 1px solid #eee;
+  top: 12px;
+  right: 12px;
+  background: white; 
+  border: 1px solid #e5e7eb;
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -45,10 +46,10 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   transition: all 0.2s ease;
   z-index: 10;
-  color: #666;
+  color: #1f2937;
 }
 
 .wishlist-btn:hover {
@@ -56,13 +57,39 @@
 }
 
 .wishlist-btn.active {
-  color: #ef4444;
+  background-color: #fee2e2; 
   border-color: #ef4444;
-  background-color: #fff0f0;
+  color: #ef4444; 
 }
 
 .wishlist-btn.active svg {
-  fill: currentColor;
+  fill: #ef4444;
+}
+
+/* --- BLOCK BUTTON --- */
+.block-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.2s ease;
+  z-index: 10;
+  color: #94a3b8; 
+}
+
+.block-btn:hover {
+    background: #fef2f2;
+    color: #ef4444;
+    transform: scale(1.1);
 }
 
 /* --- Content Section --- */
@@ -71,17 +98,18 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  text-align: center; /* Key: Centers everything like the image */
+  text-align: center;
+  min-height: 0;
+  overflow: visible; /* Ensures footer content is not cut off */
 }
 
-/* Header Group (Title + Rating) */
 .hostel-card-header {
   display: flex;
-  justify-content: center; /* Center align horizontally */
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .hostel-card-name {
@@ -89,22 +117,21 @@
   font-weight: 700;
   color: #111827;
   margin: 0;
-  font-family: "Times New Roman", Times, serif; /* SERIF font matches image */
-  letter-spacing: 0.01em;
+  font-family: serif; 
+  letter-spacing: 0.3px;
 }
 
 .hostel-card-rating {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   font-size: 0.9rem;
   color: #374151;
 }
 
 .rating-star {
-  color: #fbbf24; /* Yellow star */
   font-size: 1rem;
-  margin-top: -2px;
+  margin-bottom: 2px;
 }
 
 .rating-value {
@@ -113,53 +140,96 @@
 }
 
 .rating-reviews {
-  color: #9ca3af; /* Light gray for review count */
+  color: #9ca3af;
   font-size: 0.85rem;
+  margin-left: 2px;
 }
 
-/* Location */
 .hostel-card-location {
   color: #6b7280;
   font-size: 0.9rem;
-  margin-bottom: 24px;
+  margin-bottom: 16px; /* Reduced from 24px */
   font-weight: 400;
 }
 
-/* --- Footer Section (Beds & Price) --- */
+/* --- Footer Section (Price and Button) --- */
 .hostel-card-footer {
   margin-top: auto;
   display: flex;
   justify-content: space-between;
-  align-items: flex-end; /* Align to bottom baseline */
-  border-top: 1px solid #f3f4f6; /* Subtle divider line */
+  align-items: center; 
+  gap: 12px; /* ADDED: Space between items */
+  border-top: 1px solid #f3f4f6;
   padding-top: 16px;
+  width: 100%;
+  flex-wrap: nowrap; /* ADDED: Prevents wrapping */
 }
 
-/* Left Side: "beds" */
+.hostel-card-price-info {
+    text-align: left;
+    flex-shrink: 1; /* CHANGED: Allow shrinking if needed */
+    min-width: 0; /* ADDED: Allows flexbox to shrink properly */
+}
+
 .hostel-card-info {
   font-size: 0.85rem;
   color: #6b7280;
   font-weight: 500;
+  display: block; 
+  line-height: 1.2;
 }
 
-/* Right Side: Price */
+/* Price Styling */
 .hostel-card-price {
-  text-align: right;
+  line-height: 1;
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 2px;
+  margin-bottom: 4px;
 }
 
 .price-amount {
-  font-size: 1.8rem; /* Big price font */
+  font-size: 1.75rem; 
   font-weight: 800;
   color: #111827;
-  font-family: "Times New Roman", Times, serif; /* SERIF font matches image */
-  line-height: 1;
+  font-family: serif; 
 }
 
 .price-unit {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #6b7280;
   font-weight: 400;
+}
+
+/* Contact Button (The blue button) */
+.contact-hostel-btn {
+    padding: 10px 18px;
+    background: #2563eb; 
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0; /* KEPT: Prevents button from shrinking */
+    white-space: nowrap; /* KEPT: Ensures button text stays on one line */
+}
+
+.contact-hostel-btn:hover {
+    background: #1d4ed8;
+}
+
+/* Responsive adjustments for smaller cards */
+@media (max-width: 768px) {
+  .hostel-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .contact-hostel-btn {
+    width: 100%;
+    text-align: center;
+  }
 }
