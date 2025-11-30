@@ -16,9 +16,10 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Camera, MapPin, Star, Edit2, Trash2, MessageSquare, CornerUpLeft } from 'lucide-react'; // Added CornerUpLeft
-import { ChatWindow } from '../components/ChatWindow'; // Import Chat Window Component
-import { Notifications } from './Notifications'; // Reusing User Notifications component for viewing
+import { Camera, MapPin, Star, Edit2, Trash2, MessageSquare } from 'lucide-react';
+import { ChatWindow } from '../components/ChatWindow'; 
+import { Notifications } from './Notifications'; 
+import { BookingAnalytics } from '../components/BookingAnalytics'; // NEW IMPORT
 import './OwnerDashboard.css';
 
 function OwnerDashboard() {
@@ -29,7 +30,7 @@ function OwnerDashboard() {
   const [activeTab, setActiveTab] = useState('hostels')
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingHostel, setEditingHostel] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) 
 
   // Owner Profile State
   const [ownerProfile, setOwnerProfile] = useState({
@@ -162,7 +163,6 @@ function OwnerDashboard() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Fetch all chats where the ownerId matches the current user
     const qChats = query(
       collection(db, 'supportChats'),
       where('ownerId', '==', currentUser.uid) 
@@ -173,7 +173,6 @@ function OwnerDashboard() {
         id: doc.id,
         ...doc.data(),
       }));
-      // Filter out any threads without a bookingId (optional, but keeps list clean)
       setActiveSupportChats(chatThreads.filter(chat => chat.bookingId));
     }, (error) => {
       console.error("Error fetching support chats:", error);
@@ -196,10 +195,8 @@ function OwnerDashboard() {
               const booking = change.doc.data();
               const bookingId = change.doc.id;
               
-              // Only generate notification if status is 'pending' AND notification hasn't been sent
               if (booking.status === 'pending' && booking.ownerNotified !== true) {
                   
-                  // Check if notification already exists using a query
                   const qCheck = query(
                       collection(db, 'notifications'),
                       where('relatedId', '==', bookingId),
@@ -208,7 +205,6 @@ function OwnerDashboard() {
                   const checkSnap = await getDocs(qCheck);
 
                   if (checkSnap.empty) {
-                      // Generate Notification for the Owner
                       await addDoc(collection(db, 'notifications'), {
                           userId: currentUser.uid, // Targeting the current owner
                           type: 'owner_booking_request',
@@ -236,9 +232,7 @@ function OwnerDashboard() {
   // --- HANDLERS ---
 
   const handleOpenChat = async (chat) => {
-      // Chat ID is the specific booking ID/thread ID for supportChats
-      
-      // Need to fetch user details to display name in chat window
+      // Logic for support chats (initiated by customer)
       let userName = chat.userEmail;
       try {
           const userSnap = await getDoc(doc(db, 'users', chat.userId));
@@ -252,7 +246,7 @@ function OwnerDashboard() {
       setCurrentChatDetails({
           chatId: chat.id, 
           recipientName: userName,
-          recipientId: chat.userId, // The user who started the chat
+          recipientId: chat.userId,
           collectionName: 'supportChats'
       });
       setIsSupportChatOpen(true);
@@ -260,7 +254,7 @@ function OwnerDashboard() {
 
   const handleOpenUserChat = (user) => {
       if (!currentUser) return;
-      // For P2P chat initiated by owner, the chat ID is sorted UIDs
+      // Logic for P2P chat (initiated by owner to a user in Manage Users tab)
       const sortedIds = [currentUser.uid, user.id].sort().join('_');
       
       setCurrentChatDetails({
@@ -270,6 +264,29 @@ function OwnerDashboard() {
           collectionName: 'chats' // P2P collection
       });
       setIsSupportChatOpen(true);
+  };
+  
+  // Handler for Notification Actions
+  const handleOwnerNotificationAction = (data) => {
+    
+    if (data.type === 'chat') {
+        const chatId = data.relatedId;
+        const recipientId = chatId.split('_').find(uid => uid !== currentUser.uid);
+        
+        const recipientUser = users.find(u => u.id === recipientId) || { displayName: 'User', email: 'N/A' };
+
+        setCurrentChatDetails({
+            chatId: chatId,
+            recipientId: recipientId,
+            recipientName: recipientUser.displayName || recipientUser.email,
+            collectionName: 'chats' // P2P collection
+        });
+        setIsSupportChatOpen(true);
+        
+    } else if (data.type === 'owner_booking_request') {
+        // Booking Request: Switches to Bookings tab to process
+        setActiveTab('bookings');
+    }
   };
 
 
@@ -338,14 +355,83 @@ function OwnerDashboard() {
     } catch (error) { console.error('Error adding hostel:', error); alert('Failed to add hostel: ' + error.message) }
   }
 
+  // FIX: Populate formData with selected hostel data
   const handleEditHostel = (hostel) => {
-    setShowAddForm(true); setEditingHostel(hostel);
+    setEditingHostel(hostel)
+    
+    const amenitiesObj = {
+      wifi: false, kitchen: false, laundry: false, parking: false, breakfast: false,
+      airConditioning: false, heating: false, pool: false, gym: false, lockers: false,
+      commonRoom: false, bbq: false, security: false, reception24h: false
+    }
+
+    if (hostel.amenities && Array.isArray(hostel.amenities)) {
+      hostel.amenities.forEach(amenity => {
+        const key = amenity.toLowerCase().replace(/\s+/g, '')
+        if (key in amenitiesObj) amenitiesObj[key] = true
+      })
+    }
+
+    // Set the form data based on the selected hostel object
+    setFormData({
+        name: hostel.name || '',
+        location: hostel.location || '',
+        price: hostel.price?.toString() || '',
+        description: hostel.description || '',
+        capacity: hostel.capacity?.toString() || '',
+        rating: hostel.rating?.toString() || '4.5',
+        reviews: hostel.reviews?.toString() || '0',
+        image: hostel.image || '',
+        wifiSpeed: hostel.wifiSpeed || '50',
+        checkInTime: hostel.checkInTime || '14:00',
+        checkOutTime: hostel.checkOutTime || '11:00',
+        amenities: amenitiesObj
+    });
+    
+    setShowAddForm(true); 
   }
 
+  // FIX: Implement the Update Hostel logic
   const handleUpdateHostel = async (e) => {
     e.preventDefault()
     if (!editingHostel) return
-    // ... (logic to update hostel in Firestore)
+    
+    try {
+      const amenitiesArray = Object.keys(formData.amenities)
+        .filter(key => formData.amenities[key])
+        .map(key => key.replace(/([A-Z])/g, ' $1').trim()
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))
+
+      const updateData = {
+        name: formData.name,
+        location: formData.location,
+        price: parseFloat(formData.price),
+        capacity: parseInt(formData.capacity) || 0,
+        rating: parseFloat(formData.rating) || 4.5,
+        reviews: parseInt(formData.reviews) || 0,
+        description: formData.description || '',
+        image: formData.image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800',
+        wifiSpeed: formData.wifiSpeed || '50',
+        checkInTime: formData.checkInTime || '14:00',
+        checkOutTime: formData.checkOutTime || '11:00',
+        amenities: amenitiesArray,
+        updatedAt: new Date().toISOString()
+      }
+
+      const hostelRef = doc(db, 'hostels', editingHostel.id)
+      await updateDoc(hostelRef, updateData)
+
+      // Update local state and close form
+      setHostels(hostels.map(h => h.id === editingHostel.id ? { ...h, ...updateData } : h))
+      resetForm()
+      setEditingHostel(null)
+      setShowAddForm(false)
+      alert('Hostel updated successfully!')
+    } catch (error) {
+      console.error('Error updating hostel:', error)
+      alert('Failed to update hostel: ' + error.message)
+    }
   }
 
   const handleDeleteHostel = async (id) => {
@@ -454,6 +540,12 @@ function OwnerDashboard() {
           <button className={`tab-button ${activeTab === 'chats' ? 'active' : ''}`} onClick={() => setActiveTab('chats')}>
               Chats ({activeSupportChats.length})
           </button>
+          <button className={`tab-button ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>
+              Notifications
+          </button>
+          <button className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              Analytics
+          </button>
           <button className={`tab-button ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>My Profile</button>
         </div>
 
@@ -480,17 +572,17 @@ function OwnerDashboard() {
                   {editingHostel ? 'Edit Hostel' : 'Add New Hostel'}
                 </h4>
                 
-                {/* Form fields remain same */}
+                {/* Form fields remain same (Note: inputs are now linked to formData) */}
                 <div className="form-row">
-                  <div className="form-group"><label>Hostel Name</label><input type="text" value={formData.name} onChange={handleInputChange} required /></div>
-                  <div className="form-group"><label>Location</label><input type="text" value={formData.location} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Hostel Name</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Location</label><input type="text" name="location" value={formData.location} onChange={handleInputChange} required /></div>
                 </div>
                 <div className="form-row">
-                  <div className="form-group"><label>Price ($)</label><input type="number" value={formData.price} onChange={handleInputChange} required /></div>
-                  <div className="form-group"><label>Capacity</label><input type="number" value={formData.capacity} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Price ($)</label><input type="number" name="price" value={formData.price} onChange={handleInputChange} required /></div>
+                  <div className="form-group"><label>Capacity</label><input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required /></div>
                 </div>
-                <div className="form-group"><label>Image URL</label><input type="url" value={formData.image} onChange={handleInputChange} /></div>
-                <div className="form-group"><label>Description</label><textarea value={formData.description} onChange={handleInputChange} /></div>
+                <div className="form-group"><label>Image URL</label><input type="url" name="image" value={formData.image} onChange={handleInputChange} /></div>
+                <div className="form-group"><label>Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} /></div>
                 
                 <button type="submit" className="submit-button">{editingHostel ? 'Update Hostel' : 'Add Hostel'}</button>
               </form>
@@ -580,7 +672,8 @@ function OwnerDashboard() {
                         <td>{booking.hostelName}</td>
                         <td>{booking.checkIn}</td>
                         <td>{booking.checkOut}</td>
-                        <td>${booking.totalPrice}</td>
+                        {/* FIX: Display Total Price using proper fallback and check for null */}
+                        <td>${booking.totalPrice || booking.price || 0}</td>
                         <td>
                           <select value={booking.status} onChange={(e) => handleBookingStatusChange(booking.id, e.target.value)} className={`status-select ${booking.status}`}>
                             <option value="pending">Pending</option>
@@ -658,7 +751,7 @@ function OwnerDashboard() {
           </div>
         )}
 
-        {/* Chats Tab */}
+        {/* NEW: Chats Tab */}
         {activeTab === 'chats' && (
           <div className="chats-section">
              <h3 className="section-title">Active Customer Support Chats ({activeSupportChats.length})</h3>
@@ -669,13 +762,13 @@ function OwnerDashboard() {
                          <div 
                             key={chat.id} 
                             className="chat-thread-card"
-                            onClick={() => handleOpenChat(chat)}
+                            onClick={() => handleOpenChat(chat)} // Launches chat modal
                          >
                             <div className="chat-thread-info">
                                 <MessageSquare size={20} />
                                 <div>
-                                    <p className="thread-title">Booking Ref: {chat.bookingId.substring(0, 6)}</p>
-                                    <p className="thread-subtitle">User: {chat.userName || chat.userEmail}</p>
+                                    <p className="thread-title">Booking Ref: {chat.id.substring(0, 6)}</p>
+                                    <p className="thread-subtitle">User: {chat.userEmail}</p>
                                 </div>
                             </div>
                             <span className="chat-access-btn">Open →</span>
@@ -689,7 +782,22 @@ function OwnerDashboard() {
              )}
           </div>
         )}
+
+        {/* Notifications Tab */}
+        {activeTab === 'notifications' && (
+            <div className="notifications-section">
+                <Notifications onAction={handleOwnerNotificationAction} /> 
+            </div>
+        )}
         
+        {/* NEW: Analytics Tab */}
+        {activeTab === 'analytics' && (
+            <div className="analytics-section">
+                <h3 className="section-title">Occupancy and Revenue Analytics</h3>
+                <BookingAnalytics />
+            </div>
+        )}
+
         {/* Profile Tab (With Upload) */}
         {activeTab === 'profile' && (
           <div className="profile-section">
@@ -703,8 +811,9 @@ function OwnerDashboard() {
             <div className="profile-card">
               <div className="profile-header">
                 <div className="profile-avatar">
+                  {/* FIX: Ensure photoURL is prioritized */}
                   {ownerProfile.photoURL ? (
-                    <img src={ownerProfile.photoURL} alt="Profile" />
+                    <img src={ownerProfile.photoURL} alt="Profile" className="profile-avatar-img" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
                   ) : (
                     <div className="avatar-placeholder">{(ownerProfile.name?.charAt(0) || 'O').toUpperCase()}</div>
                   )}
@@ -779,7 +888,7 @@ function OwnerDashboard() {
         {isSupportChatOpen && currentChatDetails && (
             <ChatWindow
               chatId={currentChatDetails.chatId}
-              collectionName={currentChatDetails.collectionName} // 'supportChats' or 'chats'
+              collectionName={currentChatDetails.collectionName}
               onClose={() => setIsSupportChatOpen(false)}
               recipientName={currentChatDetails.recipientName}
               recipientId={currentChatDetails.recipientId}

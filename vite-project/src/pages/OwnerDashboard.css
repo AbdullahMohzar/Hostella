@@ -1,5 +1,5 @@
 /* ========================================= */
-/* OWNER DASHBOARD - FULL STYLES             */
+/* OWNER DASHBOARD - FULL STYLES             */
 /* ========================================= */
 
 .owner-dashboard {
@@ -495,7 +495,7 @@
 
 
 /* ========================================= */
-/* UPDATED TABLES                            */
+/* UPDATED TABLES                            */
 /* ========================================= */
 
 .bookings-table-container,
@@ -697,4 +697,68 @@
      grid-template-columns: 1fr 1fr;
      gap: 10px;
   }
+}
+
+/* --- CHAT THREAD LIST STYLES (New) --- */
+.chat-thread-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.chat-thread-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.owner-dashboard.dark .chat-thread-card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.chat-thread-card:hover {
+    background: #f9fafb;
+}
+
+.owner-dashboard.dark .chat-thread-card:hover {
+    background: #334151;
+}
+
+.chat-thread-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.chat-thread-info svg {
+    color: #2563eb;
+}
+
+.thread-title {
+    font-weight: 700;
+    margin: 0;
+    color: #1f2937;
+}
+
+.thread-subtitle {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 2px 0 0 0;
+}
+
+.owner-dashboard.dark .thread-title { color: #f9fafb; }
+.owner-dashboard.dark .thread-subtitle { color: #9ca3af; }
+
+.chat-access-btn {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #2563eb;
 }
