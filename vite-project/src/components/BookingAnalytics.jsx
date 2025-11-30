@@ -39,8 +39,11 @@ export function BookingAnalytics() {
                     const year = date.getFullYear();
                     const key = `${year}-${monthNames[month]}`;
                     
-                    // Count revenue only if confirmed
-                    const price = (booking.status === 'confirmed' ? parseFloat(booking.price) : 0) || 0;
+                    // UPDATED: Use the same confirmed revenue calculation logic as OwnerDashboard
+                    const price = booking.status === 'confirmed' 
+                        ? parseFloat(booking.totalPrice || booking.price) || 0 
+                        : 0;
+                    
                     const guests = parseInt(booking.guests) || 1;
                     
                     if (!dataByMonth[key]) {
@@ -93,7 +96,8 @@ export function BookingAnalytics() {
                 booking.userEmail,
                 booking.checkIn,
                 booking.checkOut,
-                (booking.price || 0).toFixed(2),
+                // UPDATED: Use the same price field logic
+                (booking.totalPrice || booking.price || 0).toFixed(2),
                 booking.guests || 1,
                 booking.status || 'pending',
                 booking.discountApplied || 0,
